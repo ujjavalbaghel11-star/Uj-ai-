@@ -1,4 +1,4 @@
-# UJ AI Native Android Foundation — v3.2.11
+# UJ AI Native Android Foundation — v3.2.12
 
 ## Implemented in this project
 - Capacitor Android application source (`android/`) using package `com.ujai.app`.
