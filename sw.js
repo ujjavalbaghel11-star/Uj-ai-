@@ -1,4 +1,4 @@
-const CACHE_NAME = 'uj-ai-shell-v3.2.9-native-android';
+const CACHE_NAME = 'uj-ai-shell-v3.2.12-native-android';
 const APP_SHELL = [
   '/',
   '/index.html',
@@ -7,7 +7,8 @@ const APP_SHELL = [
   '/manifest.webmanifest',
   '/icon.svg',
   '/icon-192.png',
-  '/icon-512.png'
+  '/icon-512.png',
+  '/images/uj-background.png'
 ];
 self.addEventListener('install', event => {
   event.waitUntil(caches.open(CACHE_NAME).then(cache => cache.addAll(APP_SHELL)).then(() => self.skipWaiting()));

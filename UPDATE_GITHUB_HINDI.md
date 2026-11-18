@@ -1,4 +1,4 @@
-UJ AI v3.2.11 ko apne existing GitHub repository me update karne ke liye:
+UJ AI v3.2.12 ko apne existing GitHub repository me update karne ke liye:
 
 1. ZIP ko extract karein.
 2. Extract hui folder ke ANDAR ki sabhi files/folders (hidden .github folder samet) ko apne repository ke root me upload karein.

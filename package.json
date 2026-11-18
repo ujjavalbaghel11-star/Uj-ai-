@@ -1,6 +1,6 @@
 {
   "name": "uj-ai-cross-platform",
-  "version": "3.0.0",
+  "version": "3.2.12",
   "private": true,
   "type": "module",
   "engines": {
@@ -12,15 +12,15 @@
     "check": "node --check server.js && node --check public/app.js && node --check public/sw.js",
     "cap:sync": "cap sync android",
     "cap:open": "cap open android",
-    "android:build": "cd android && ./gradlew assembleDebug",
-    "android:install": "cd android && ./gradlew installDebug"
+    "android:build": "cd android && gradle assembleDebug",
+    "android:install": "cd android && gradle installDebug"
   },
   "dependencies": {
-    "@capacitor/android": "^8.6.2",
-    "@capacitor/cli": "^8.6.2",
-    "@capacitor/core": "^8.6.2",
     "@simplewebauthn/server": "^14.1.0",
-    "google-auth-library": "^11.3.4",
-    "nodemailer": "^7.0.13"
+    "@capacitor/core": "^7.4.3",
+    "@capacitor/android": "^7.4.3"
+  },
+  "devDependencies": {
+    "@capacitor/cli": "^7.4.3"
   }
 }
