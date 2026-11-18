@@ -16,7 +16,7 @@ A responsive Hindi/Hinglish Progressive Web App for Android, iPhone and desktop 
 - Account-owned chats and messages stored in SQLite; signing into the same account on another device loads the same chat history.
 - Optional platform passkeys through WebAuthn for device biometrics/security keys, when the host is HTTPS and the server dependency is installed.
 - Server-only AI provider keys and silent automatic fallback order: Gemini, OpenAI, then an optional OpenAI-compatible Meta-hosted endpoint.
-- A Capacitor configuration file is included as a future native-packaging starting point.
+- A Capacitor Android project is included under `android/`, with a GitHub Actions workflow for building a debug APK.
 
 ## Requirements
 
@@ -93,9 +93,19 @@ Codespaces URLs are deployment-specific and are not a substitute for a stable pr
 
 The backend silently tries configured providers in `UJ_AI_PROVIDER_ORDER` (default `gemini,openai,meta`). The Meta option is a configurable OpenAI-compatible endpoint, not a claim that a Meta account has already been connected. Provider identity is not shown in the chat UI. Only the server reads provider keys.
 
-## PWA and native packaging status
+## Native Android project
 
-The PWA shell is implemented, but a public deployment has not been performed. The app is not an Android APK and is not an iOS App Store build. The included `capacitor.config.json` is a packaging scaffold only. To create native projects later, install Capacitor CLI/core and the Android/iOS platform packages, then run the Capacitor init/sync commands. Android signing/build needs Android SDK tooling; iOS packaging needs macOS and Xcode.
+The Android project wraps the `public/` app with Capacitor. It includes native phone/settings launch shortcuts, an Android Assistant-role request, and VoiceInteraction service declarations. The current assistant session opens the app; always-listening wake-word detection and a full native voice interaction UI are not implemented.
+
+To build a debug APK locally, install Node.js 22+, Android SDK platform/build tools 36, and JDK 21, then run:
+
+```bash
+npm ci
+npm run cap:sync
+npm run android:build
+```
+
+The APK is written to `android/app/build/outputs/apk/debug/app-debug.apk`. The `Build Android APK` GitHub Actions workflow also builds and uploads a debug APK artifact on pushes to `main`, pull requests, or manual dispatch. The project has not yet been built into an APK or tested on a device. iOS packaging still requires macOS and Xcode.
 
 ## Not yet complete / external dependencies
 

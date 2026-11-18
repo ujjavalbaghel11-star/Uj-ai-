@@ -1,6 +1,6 @@
 # UJ AI Cross-Platform — Development Status
 
-Updated: 2026-11-17
+Updated: 2026-11-18
 
 ## Implemented in this build
 - Responsive PWA shell for Android/iPhone/desktop browsers.
@@ -15,7 +15,7 @@ Updated: 2026-11-17
 ## Verification performed
 - Node.js v22.16.0.
 - `npm run check` — passed (server, frontend, service worker syntax).
-- `npm test` — 2 tests passed, including PIN set/status/wrong PIN/correct PIN and a mock OpenAI-compatible provider request whose reply is persisted in chat history.
+- `npm test` — 3 tests passed, covering account authentication/history, provider persistence, and Google OAuth PKCE/browser-binding behavior.
 
 ## Not completed / blockers
 - No live deployment or public HTTPS URL exists yet.
@@ -23,6 +23,7 @@ Updated: 2026-11-17
 - No real provider key has been configured; live AI calls are not verified. Configure keys only in the hosting provider's secret/environment settings, never in chat or frontend files.
 - Passkey/biometric registration has not been verified on a real HTTPS hostname; dependency installation and RP/origin configuration remain.
 - Android APK and iOS packaging/build have not been generated or tested.
+- Android Capacitor project and GitHub Actions debug-APK build workflow are present. APK generation and target-device testing remain pending.
 
 ## Next precise step
 Deploy this Node.js server to a host with HTTPS and persistent storage; set `PUBLIC_ORIGIN`, `WEBAUTHN_RP_ID`, `DB_PATH`, and at least one provider key in the host's secret settings. Then verify account login, PIN, passkey, AI response and chat history from two separate devices before packaging.

@@ -1,0 +1,40 @@
+name: Restore UJ AI project structure
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  restore:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+        with:
+          ref: main
+          persist-credentials: true
+
+      - name: Extract project ZIP into repository root
+        run: |
+          set -e
+          test -f UJ_AI_v3_2_11_GITHUB_ROOT_UPLOAD-9.zip
+          unzip -o UJ_AI_v3_2_11_GITHUB_ROOT_UPLOAD-9.zip -d .
+          test -f public/index.html
+          test -f public/app.js
+          test -f public/sw.js
+          test -f server.js
+          test -f package.json
+
+      - name: Commit restored project files
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A
+          if git diff --cached --quiet; then
+            echo "No file changes to commit."
+          else
+            git commit -m "Restore UJ AI project folder structure"
+            git push origin HEAD:main
+          fi
