@@ -1,0 +1,8 @@
+{
+  "appId": "com.ujai.app",
+  "appName": "UJ AI",
+  "webDir": "public",
+  "server": {
+    "androidScheme": "https"
+  }
+}
