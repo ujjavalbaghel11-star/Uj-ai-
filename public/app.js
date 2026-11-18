@@ -127,7 +127,7 @@ async function loadMessages() {
 }
 function updateModeButtons() {
   $$('[data-mode]').forEach(button => button.classList.toggle('active', button.dataset.mode === currentMode));
-  const hints = { personal: 'UJ AI से कुछ भी पूछें…', nursing: 'Nursing Study के बारे में पूछें…', coding: 'Code या programming के बारे में पूछें…', cybersecurity: 'Cybersecurity, networking या logs के बारे में पूछें…', folax: 'Folax Mode में कुछ भी पूछें…' };
+  const hints = { personal: 'UJ AI से कुछ भी पूछें…', nursing: 'Nursing Study के बारे में पूछें…', coding: 'Code या programming के बारे में पूछें…', cybersecurity: 'Cybersecurity, networking या logs के बारे में पूछें…', folax: 'Folax Mode में कुछ भी पूछें…', jarvis: 'UJ JARVIS से बात करें…' };
   $('#messageInput').placeholder = hints[currentMode] || hints.personal;
 }
 async function enterApp(user) {

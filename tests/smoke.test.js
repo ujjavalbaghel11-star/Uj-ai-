@@ -81,6 +81,7 @@ async function request(route, options = {}) {
   const shellHtml = await shell.text();
   assert.match(shellHtml, /UJ AI में स्वागत है/);
   assert.match(shellHtml, /data-mode=\"cybersecurity\"/);
+  assert.match(shellHtml, /data-mode=\"jarvis\"/);
   assert.match(shellHtml, /id=\"attachButton\"/);
   assert.match(shellHtml, /id="phoneControl"/);
   assert.match(shellHtml, /id="googleLogin"/);
@@ -216,6 +217,9 @@ async function request(route, options = {}) {
   const folaxChat = await request('/api/chats', { method: 'POST', body: { mode: 'folax' } });
   assert.equal(folaxChat.response.status, 201);
   assert.equal(folaxChat.data.chat.mode, 'folax');
+  const jarvisChat = await request('/api/chats', { method: 'POST', body: { mode: 'jarvis' } });
+  assert.equal(jarvisChat.response.status, 201);
+  assert.equal(jarvisChat.data.chat.mode, 'jarvis');
 
   const noProvider = await request('/api/chat', { method: 'POST', body: { chatId, message: 'Test message', mode: 'nursing' } });
   assert.equal(noProvider.response.status, 503);
@@ -236,10 +240,11 @@ async function request(route, options = {}) {
   assert.equal(login.response.status, 200);
   const syncedChats = await request('/api/chats');
   assert.equal(syncedChats.response.status, 200);
-  assert.equal(syncedChats.data.chats.length, 3);
+  assert.equal(syncedChats.data.chats.length, 4);
   assert.ok(syncedChats.data.chats.some(item => item.id === chatId), 'same account should see its saved chats after signing in again');
   assert.ok(syncedChats.data.chats.some(item => item.mode === 'cybersecurity'), 'cybersecurity chat mode should persist');
   assert.ok(syncedChats.data.chats.some(item => item.mode === 'folax'), 'Folax mode should persist');
+  assert.ok(syncedChats.data.chats.some(item => item.mode === 'jarvis'), 'JARVIS mode should persist');
 
   const passkeyStatus = await request('/api/auth/passkey/register/options', { method: 'POST', body: {} });
   if (!health.data.passkeysAvailable) assert.equal(passkeyStatus.response.status, 503);

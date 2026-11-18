@@ -146,6 +146,9 @@ The web client includes browser-native Hindi speech recognition, speech output, 
 ### Folax Mode
 The app includes a Folax-inspired everyday assistant mode for Hindi/Hinglish conversations. It runs through UJ AI's configured server-side AI provider. This is not the official Infinix Folax service and does not invoke proprietary Folax APIs or device controls.
 
+### JARVIS Mode and custom background
+JARVIS mode provides a concise Hindi/Hinglish assistant persona and does not claim unauthorized phone control, always-listening, or background access. To use a custom app background, place your image at `public/images/uj-background.jpg`; the stylesheet includes a dark overlay for readability.
+
 
 ## Phone control shortcuts — 2026-11-17
 - Added a UJ AI Phone Control panel with explicit launch buttons for YouTube, WhatsApp, Camera, Chrome, Android Settings, Wi-Fi settings, Bluetooth settings, and the phone dialer.

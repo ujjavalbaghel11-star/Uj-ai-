@@ -3,6 +3,10 @@
 @media(max-width:390px){.auth-card{padding:23px 19px}.topbar-title{gap:7px}.connection-status{max-width:125px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.composer-tools span{display:none}}
 @media(prefers-reduced-motion:reduce){*{scroll-behavior:auto!important;transition:none!important}}
 
+/* Optional user-provided background image: public/images/uj-background.jpg */
+.app-shell{background-image:linear-gradient(rgba(7,12,27,.78),rgba(7,12,27,.86)),url('/images/uj-background.jpg');background-size:cover;background-position:center;background-attachment:fixed}
+.workspace{background:transparent}
+
 .phone-control{margin:7px 22px 4px;padding:12px 14px;border:1px solid #354566;border-radius:16px;background:linear-gradient(110deg,#172642,#171d39);box-shadow:0 8px 28px #0002}.phone-control-head{display:flex;align-items:center;justify-content:space-between;gap:12px}.phone-control-head strong{display:block;font-size:12px}.phone-control-head small{display:block;color:var(--muted);font-size:10px;margin-top:2px}.phone-badge{font-size:9px;letter-spacing:1px;padding:4px 7px;border-radius:99px;background:#285e61;color:#9ff7e8}.phone-action-grid{display:grid;grid-template-columns:repeat(8,minmax(0,1fr));gap:6px;margin-top:10px}.phone-action-grid button{min-height:36px;padding:6px 5px;border:1px solid #344463;border-radius:10px;background:#202d4a;color:#e6edff;font-size:10px}.phone-action-grid button:active{background:#5147a8}.phone-control-note{font-size:9px;color:#9eabc9;margin:8px 1px 0;line-height:1.4}
 
 .auth-card>#googleLogin{margin-bottom:8px}
