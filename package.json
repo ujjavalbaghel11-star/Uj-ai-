@@ -1,0 +1,22 @@
+{
+  "name": "uj-ai-cross-platform",
+  "version": "3.0.0",
+  "private": true,
+  "type": "module",
+  "engines": {
+    "node": ">=22.13.0"
+  },
+  "scripts": {
+    "start": "node server.js",
+    "test": "node --test",
+    "check": "node --check server.js && node --check public/app.js && node --check public/sw.js"
+  },
+  "dependencies": {
+    "@capacitor/android": "^8.6.2",
+    "@capacitor/cli": "^8.6.2",
+    "@capacitor/core": "^8.6.2",
+    "@simplewebauthn/server": "^14.1.0",
+    "google-auth-library": "^11.3.4",
+    "nodemailer": "^7.0.13"
+  }
+}
