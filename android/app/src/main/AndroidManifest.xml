@@ -1,0 +1,15 @@
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+    <uses-permission android:name="android.permission.INTERNET" />
+    <uses-permission android:name="android.permission.RECORD_AUDIO" />
+    <uses-feature android:name="android.hardware.microphone" android:required="false" />
+    <application android:allowBackup="false" android:label="UJ AI" android:theme="@style/AppTheme" android:usesCleartextTraffic="false">
+        <activity android:name=".MainActivity" android:exported="true" android:launchMode="singleTask" android:configChanges="orientation|keyboardHidden|keyboard|screenSize|locale|smallestScreenSize|screenLayout|uiMode|navigation" android:theme="@style/AppTheme">
+            <intent-filter><action android:name="android.intent.action.MAIN"/><category android:name="android.intent.category.LAUNCHER"/></intent-filter>
+        </activity>
+        <service android:name=".UJVoiceInteractionService" android:label="UJ AI" android:permission="android.permission.BIND_VOICE_INTERACTION" android:exported="true">
+            <intent-filter><action android:name="android.service.voice.VoiceInteractionService"/></intent-filter>
+            <meta-data android:name="android.voice_interaction" android:resource="@xml/voice_interaction"/>
+        </service>
+        <service android:name=".UJVoiceInteractionSessionService" android:permission="android.permission.BIND_VOICE_INTERACTION" android:exported="true" />
+    </application>
+</manifest>
