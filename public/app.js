@@ -306,13 +306,15 @@ async function sendMessage(text, { fromVoice = false } = {}) {
   const answer = addTemporaryMessage('assistant', 'Jawab aa raha hai…');
   $('#sendButton').disabled = true;
   try {
-    const data = await api('/api/chat', { method: 'POST', body: { chatId: currentChatId, message, mode: currentMode } });
+    const privateMode = localStorage.getItem('ujai.privateMode') === 'true';
+    const data = await api('/api/chat', { method: 'POST', body: { chatId: currentChatId, message, mode: currentMode, privateMode } });
     answer.textContent = data.reply;
     if (voiceOutput) {
       await speak(data.reply);
       if (fromVoice && voiceConversationActive) setStatus('जवाब पूरा हुआ। अब आप बोल सकते हैं।');
     }
-    await loadChats(currentChatId);
+    if (privateMode) setStatus('Temporary chat mode: ये messages account history में save नहीं हुए।');
+    else await loadChats(currentChatId);
   } catch (error) {
     answer.textContent = error.message;
     setStatus(error.message, 'error');
@@ -396,7 +398,8 @@ $('#fileInput').addEventListener('change', async event => {
 });
 
 function detectSpeechLanguage(value) {
-  // Prefer Hindi voice for Devanagari; use Indian English for Roman Hinglish/English.
+  const configured = localStorage.getItem('ujai.voice') || 'auto';
+  if (configured !== 'auto') return configured;
   return /[\u0900-\u097F]/.test(value) ? 'hi-IN' : 'en-IN';
 }
 function chooseSpeechVoice(lang) {
@@ -607,6 +610,91 @@ function serializeAttestation(credential) {
     clientExtensionResults: credential.getClientExtensionResults()
   };
 }
+
+$('#settingsButton').addEventListener('click', () => {
+  $('#themeSetting').value = localStorage.getItem('ujai.theme') || 'dark';
+  $('#languageSetting').value = localStorage.getItem('ujai.language') || 'hi-IN';
+  $('#voiceSetting').value = localStorage.getItem('ujai.voice') || 'auto';
+  $('#privacySetting').checked = localStorage.getItem('ujai.privateMode') === 'true';
+  $('#settingsDialog').showModal();
+});
+$('#themeSetting').addEventListener('change', event => {
+  const theme = event.target.value;
+  localStorage.setItem('ujai.theme', theme);
+  document.documentElement.classList.toggle('light-theme', theme === 'light');
+});
+$('#languageSetting').addEventListener('change', event => {
+  localStorage.setItem('ujai.language', event.target.value);
+  document.documentElement.lang = event.target.value;
+  $('#settingsStatus').textContent = 'Language preference saved.';
+});
+$('#voiceSetting').addEventListener('change', event => {
+  localStorage.setItem('ujai.voice', event.target.value);
+  $('#settingsStatus').textContent = 'Voice preference saved.';
+});
+$('#privacySetting').addEventListener('change', event => {
+  localStorage.setItem('ujai.privateMode', String(event.target.checked));
+  $('#settingsStatus').textContent = event.target.checked
+    ? 'Temporary chat mode enabled. New messages will not be saved to account history.'
+    : 'Temporary chat mode disabled.';
+});
+$('#permissionSettings').addEventListener('click', () => {
+  if (/Android/i.test(navigator.userAgent)) window.location.href = 'intent://#Intent;action=android.settings.APPLICATION_DETAILS_SETTINGS;data=package:com.ujai.app;end';
+  else $('#settingsStatus').textContent = 'Browser permissions: use the site or app settings in your device.';
+});
+$('#checkUpdate').addEventListener('click', async () => {
+  $('#settingsStatus').textContent = 'Checking for updates…';
+  try {
+    const response = await fetch('/api/app/update', { credentials: 'same-origin' });
+    if (!response.ok) throw new Error(`HTTP ${response.status}`);
+    const data = await response.json();
+    if (typeof data.latestVersion !== 'string' || !Number.isFinite(Number(data.latestCode))) throw new Error('Invalid update metadata');
+    $('#settingsStatus').textContent = `Latest UJ AI version: ${data.latestVersion}`;
+    if (data.apkUrl && data.latestCode > 331) {
+      const link = document.createElement('a');
+      link.href = data.apkUrl;
+      link.download = 'uj-ai.apk';
+      link.textContent = 'Download update';
+      link.className = 'phone-open-button';
+      $('#settingsStatus').append(document.createElement('br'), link);
+    }
+  } catch { $('#settingsStatus').textContent = 'Update service unavailable.'; }
+});
+
+$('#webSearchButton').addEventListener('click', async () => {
+  const query = window.prompt('UJ AI web search:');
+  if (!query) return;
+  setStatus('Web search चालू है…');
+  try {
+    const data = await api('/api/search', { method: 'POST', body: { query, count: 5 } });
+    addTemporaryMessage('user', `Web search: ${query}`);
+    const answer = data.results.map((item, index) => `${index + 1}. ${item.title}\n${item.url}\n${item.snippet || ''}`).join('\n\n');
+    addTemporaryMessage('assistant', answer || 'कोई useful result नहीं मिला।');
+    setStatus('Search results तैयार हैं.', 'success');
+  } catch (error) { setStatus(error.message, 'error'); }
+});
+$('#imageButton').addEventListener('click', async () => {
+  const prompt = window.prompt('AI image prompt:');
+  if (!prompt) return;
+  setStatus('Image generate हो रही है…');
+  try {
+    const data = await api('/api/images/generate', { method: 'POST', body: { prompt } });
+    addTemporaryMessage('user', `Image prompt: ${prompt}`);
+    const target = addTemporaryMessage('assistant', 'Generated image');
+    const image = document.createElement('img');
+    image.src = data.image.url;
+    image.alt = prompt;
+    image.loading = 'eager';
+    image.style.maxWidth = '100%';
+    image.style.borderRadius = '8px';
+    target.append(document.createElement('br'), image);
+    setStatus('Image तैयार है.', 'success');
+  } catch (error) { setStatus(error.message, 'error'); }
+});
+
+const savedTheme = localStorage.getItem('ujai.theme') || 'dark';
+document.documentElement.classList.toggle('light-theme', savedTheme === 'light');
+document.documentElement.lang = localStorage.getItem('ujai.language') || 'hi-IN';
 
 async function bootstrap() {
   const googleAuthResult = new URLSearchParams(location.search).get('google_auth');

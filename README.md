@@ -13,7 +13,7 @@ A responsive Hindi/Hinglish Progressive Web App for Android, iPhone and desktop 
 - Forgot-password reset requests with hashed, single-use, 30-minute default reset tokens, per-IP/email rate limiting, and configurable SMTP delivery. Reset responses do not disclose account existence or return reset tokens.
 - Optional Google Sign-In using OpenID Connect Authorization Code Flow with PKCE, one-time browser-bound state, nonce and server-side ID-token verification. Google sign-in links to an existing account only when Google confirms the same email address.
 - Opaque server-side sessions in HttpOnly, SameSite cookies, CSRF token checks, same-origin checks and basic rate limits.
-- Account-owned chats and messages stored in SQLite; signing into the same account on another device loads the same chat history.
+- Account-owned chats and messages stored in SQLite; signing into the same account on another device loads the same chat history. Optional temporary chat mode skips saved history and does not store message rows in SQLite; the configured AI provider still receives each prompt under its own retention policy.
 - Optional platform passkeys through WebAuthn for device biometrics/security keys, when the host is HTTPS and the server dependency is installed.
 - Server-only AI provider keys and silent automatic fallback order: Gemini, OpenAI, then an optional OpenAI-compatible Meta-hosted endpoint.
 - A Capacitor Android project is included under `android/`, with a GitHub Actions workflow for building a debug APK.
@@ -105,15 +105,16 @@ npm run cap:sync
 npm run android:build
 ```
 
-The APK is written to `android/app/build/outputs/apk/debug/app-debug.apk`. The `Build Android APK` GitHub Actions workflow also builds and uploads a debug APK artifact on pushes to `main`, pull requests, or manual dispatch. The project has not yet been built into an APK or tested on a device. iOS packaging still requires macOS and Xcode.
+The APK is written to `android/app/build/outputs/apk/debug/app-debug.apk`. The `Build Android APK` GitHub Actions workflow builds and uploads debug and unsigned release APK artifacts on pushes to `main`, pull requests, or manual dispatch. Generated APKs still require installation and runtime testing on a target device. iOS packaging still requires macOS and Xcode.
 
 ## Not yet complete / external dependencies
 
 - No live cloud deployment or domain is included.
+- External HeyGen, vidIQ and Metricool integrations require valid provider accounts and server-side credentials; no credentials are shipped with the APK.
 - No real AI provider can answer until a valid server-side key is configured on the host.
 - Passkeys require the declared `@simplewebauthn/server` dependency to be installed and a correct HTTPS origin/RP ID.
-- No native APK, IPA, Play Store or App Store build has been created.
-- HeyGen, vidIQ and Metricool remain separate integration work; the earlier integrations ZIP is a starter scaffold and does not mean those services are authenticated or live.
+- No signed production APK, IPA, Play Store or App Store release is available.
+- HeyGen, vidIQ and Metricool remain credential-dependent integrations. Configure their variables in `.env` or the host secrets; without valid credentials, the app reports configuration/unavailability rather than pretending a provider is connected.
 - SQLite is suitable for a single persistent server instance. Multi-instance deployment needs a shared database and distributed rate limiting.
 
 ## Legacy files checked
@@ -147,7 +148,10 @@ The web client includes browser-native Hindi speech recognition, speech output, 
 The app includes a Folax-inspired everyday assistant mode for Hindi/Hinglish conversations. It runs through UJ AI's configured server-side AI provider. This is not the official Infinix Folax service and does not invoke proprietary Folax APIs or device controls.
 
 ### JARVIS Mode and custom background
-JARVIS mode provides a concise Hindi/Hinglish assistant persona and does not claim unauthorized phone control, always-listening, or background access. To use a custom app background, place your image at `public/images/uj-background.jpg`; the stylesheet includes a dark overlay for readability.
+JARVIS mode provides a concise Hindi/Hinglish assistant persona and does not claim unauthorized phone control, always-listening, or background access. Place the original supplied face/background image unchanged at `public/images/uj-background.jpg`; the stylesheet applies only a subtle dark readability overlay and does not modify the image. The repository does not contain or generate a replacement face image.
+
+### Search, image and integration setup
+Configure one web-search provider (`BRAVE_SEARCH_API_KEY`, `SERPER_API_KEY`, or `BING_SEARCH_API_KEY`) and at least one AI provider for chat. Image generation uses `OPENAI_API_KEY` with `OPENAI_IMAGE_MODEL`, or `GEMINI_API_KEY` with `GEMINI_IMAGE_MODEL`. HeyGen requires `HEYGEN_API_KEY`; vidIQ and Metricool require their respective API base, path and key settings from `.env.example`. All credentials stay in server environment variables and are never embedded in the APK.
 
 
 ## Phone control shortcuts — 2026-11-17

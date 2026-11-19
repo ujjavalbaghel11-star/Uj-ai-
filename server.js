@@ -545,6 +545,86 @@ async function askOpenAICompatible(baseUrl, apiKey, model, message, history, mod
   if (!answer) throw new Error('Empty model response');
   return answer;
 }
+async function readProviderJson(response) {
+  if (!response.ok) throw new Error(`HTTP ${response.status}`);
+  try { return await response.json(); }
+  catch { throw new Error(`Invalid JSON response (HTTP ${response.status})`); }
+}
+async function webSearch(query, count = 5) {
+  if (process.env.BRAVE_SEARCH_API_KEY) {
+    const response = await fetch(`https://api.search.brave.com/res/v1/web/search?q=${encodeURIComponent(query)}&count=${count}`, {
+      signal: AbortSignal.timeout(20_000), headers: { Accept: 'application/json', 'X-Subscription-Token': process.env.BRAVE_SEARCH_API_KEY }
+    });
+    const data = await readProviderJson(response);
+    return (data.web?.results || []).map(item => ({ title: item.title, url: item.url, snippet: item.description }));
+  }
+  if (process.env.SERPER_API_KEY) {
+    const response = await fetch('https://google.serper.dev/search', {
+      method: 'POST', signal: AbortSignal.timeout(20_000),
+      headers: { 'X-API-KEY': process.env.SERPER_API_KEY, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ q: query, num: count })
+    });
+    const data = await readProviderJson(response);
+    return (data.organic || []).map(item => ({ title: item.title, url: item.link, snippet: item.snippet }));
+  }
+  if (process.env.BING_SEARCH_API_KEY) {
+    const response = await fetch(`https://api.bing.microsoft.com/v7.0/search?q=${encodeURIComponent(query)}&count=${count}`, {
+      signal: AbortSignal.timeout(20_000), headers: { 'Ocp-Apim-Subscription-Key': process.env.BING_SEARCH_API_KEY }
+    });
+    const data = await readProviderJson(response);
+    return (data.webPages?.value || []).map(item => ({ title: item.name, url: item.url, snippet: item.snippet }));
+  }
+  throw Object.assign(new Error('No search provider configured'), { code: 'NO_SEARCH_PROVIDER' });
+}
+
+async function generateImage(prompt) {
+  if (process.env.OPENAI_API_KEY) {
+    const response = await fetch('https://api.openai.com/v1/images/generations', {
+      method: 'POST', signal: AbortSignal.timeout(60_000),
+      headers: { Authorization: `Bearer ${process.env.OPENAI_API_KEY}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ model: process.env.OPENAI_IMAGE_MODEL || 'gpt-image-1', prompt, size: '1024x1024' })
+    });
+    const data = await readProviderJson(response);
+    const image = data.data?.[0];
+    if (image?.b64_json) return { url: `data:image/png;base64,${image.b64_json}` };
+    if (image?.url) return { url: image.url };
+  }
+  if (process.env.GEMINI_API_KEY) {
+    const model = process.env.GEMINI_IMAGE_MODEL || 'gemini-2.5-flash-image';
+    const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(model)}:generateContent`, {
+      method: 'POST', signal: AbortSignal.timeout(60_000),
+      headers: { 'Content-Type': 'application/json', 'x-goog-api-key': process.env.GEMINI_API_KEY },
+      body: JSON.stringify({
+        contents: [{ role: 'user', parts: [{ text: prompt }] }],
+        generationConfig: { responseModalities: ['TEXT', 'IMAGE'] }
+      })
+    });
+    const data = await readProviderJson(response);
+    const inline = data.candidates?.[0]?.content?.parts?.find(part => part.inlineData)?.inlineData;
+    if (inline?.data) return { url: `data:${inline.mimeType || 'image/png'};base64,${inline.data}` };
+  }
+  if (!process.env.OPENAI_API_KEY && !process.env.GEMINI_API_KEY) {
+    throw Object.assign(new Error('No image provider configured'), { code: 'NO_IMAGE_PROVIDER' });
+  }
+  throw new Error('Configured image provider returned no image');
+}
+
+async function proxyIntegration(provider, body) {
+  const configs = {
+    heygen: { key: process.env.HEYGEN_API_KEY, base: process.env.HEYGEN_API_BASE || 'https://api.heygen.com', path: '/v2/video/generate', keyHeader: 'X-Api-Key' },
+    vidiq: { key: process.env.VIDIQ_API_KEY, base: process.env.VIDIQ_API_BASE, path: process.env.VIDIQ_API_PATH || '/api/v1/research', keyHeader: process.env.VIDIQ_API_KEY_HEADER || 'Authorization' },
+    metricool: { key: process.env.METRICOOL_API_KEY, base: process.env.METRICOOL_API_BASE, path: process.env.METRICOOL_API_PATH || '/api/v1/content', keyHeader: process.env.METRICOOL_API_KEY_HEADER || 'Authorization' }
+  };
+  const config = configs[provider];
+  if (!config?.key || !config?.base) throw Object.assign(new Error(`No ${provider} integration configured`), { code: 'NO_INTEGRATION' });
+  const headers = { 'Content-Type': 'application/json' };
+  headers[config.keyHeader] = config.keyHeader === 'Authorization' ? `Bearer ${config.key}` : config.key;
+  const response = await fetch(`${config.base.replace(/\/+$/, '')}${config.path}`, {
+    method: 'POST', signal: AbortSignal.timeout(60_000), headers, body: JSON.stringify(body)
+  });
+  return readProviderJson(response);
+}
+
 async function askAI(message, history, mode) {
   const available = {
     gemini: Boolean(process.env.GEMINI_API_KEY),
@@ -601,6 +681,48 @@ async function handle(req, res) {
         return;
       }
       await finishGoogleSignIn(req, res, url);
+      return;
+    }
+    if (pathname === '/api/app/update' && req.method === 'GET') {
+      const latestVersion = process.env.UJ_APP_VERSION || '3.3.0';
+      const latestCode = Number(process.env.UJ_APP_VERSION_CODE || 331);
+      const apkUrl = process.env.UJ_APK_URL || '/releases/uj-ai.apk';
+      json(res, 200, { latestVersion, latestCode, apkUrl, notes: 'UJ AI update available.' });
+      return;
+    }
+    if (pathname === '/api/search' && req.method === 'POST') {
+      const session = getSession(req);
+      if (!authRequired(res, session) || !csrfRequired(req, res, session)) return;
+      const body = await readJson(req);
+      const query = String(body.query ?? '').trim().slice(0, 500);
+      if (!query) { json(res, 400, { error: 'Search query is required.' }); return; }
+      try {
+        const requestedCount = Number(body.count);
+        const count = Number.isFinite(requestedCount) ? Math.min(10, Math.max(1, Math.floor(requestedCount))) : 5;
+        json(res, 200, { query, results: await webSearch(query, count) });
+      } catch (error) {
+        json(res, error.code === 'NO_SEARCH_PROVIDER' ? 503 : 502, { error: 'Search service is not available.' });
+      }
+      return;
+    }
+    if (pathname === '/api/images/generate' && req.method === 'POST') {
+      const session = getSession(req);
+      if (!authRequired(res, session) || !csrfRequired(req, res, session)) return;
+      const body = await readJson(req);
+      const prompt = String(body.prompt ?? '').trim().slice(0, 4000);
+      if (!prompt) { json(res, 400, { error: 'Image prompt is required.' }); return; }
+      try { json(res, 200, { image: await generateImage(prompt) }); }
+      catch (error) { json(res, error.code === 'NO_IMAGE_PROVIDER' ? 503 : 502, { error: 'Image generation is not available.' }); }
+      return;
+    }
+    if (/^\/api\/integrations\/[^/]+$/.test(pathname) && req.method === 'POST') {
+      const session = getSession(req);
+      if (!authRequired(res, session) || !csrfRequired(req, res, session)) return;
+      const provider = pathname.split('/').pop();
+      if (!['heygen', 'vidiq', 'metricool'].includes(provider)) { json(res, 404, { error: 'Integration route not found.' }); return; }
+      const body = await readJson(req);
+      try { json(res, 200, { provider, data: await proxyIntegration(provider, body) }); }
+      catch (error) { json(res, error.code === 'NO_INTEGRATION' ? 503 : 502, { error: `${provider} integration is not configured or unavailable.` }); }
       return;
     }
     if (pathname === '/api/health' && req.method === 'GET') {
@@ -899,7 +1021,8 @@ async function handle(req, res) {
       if (!message || message.length > 20000) { json(res, 400, { error: 'Message 1–20000 characters ka hona chahiye.' }); return; }
       const chat = db.prepare('SELECT id,title FROM chats WHERE id=? AND user_id=?').get(chatId, session.userId);
       if (!chat) { json(res, 404, { error: 'Chat nahi mila. Nayi chat shuru karo.' }); return; }
-      const history = db.prepare('SELECT role,content FROM messages WHERE chat_id=? ORDER BY created_at DESC LIMIT 12').all(chatId).reverse();
+      const privateMode = body.privateMode === true;
+      const history = privateMode ? [] : db.prepare('SELECT role,content FROM messages WHERE chat_id=? ORDER BY created_at DESC LIMIT 12').all(chatId).reverse();
       let reply;
       try { reply = await askAI(message, history, mode); }
       catch (error) {
@@ -908,6 +1031,13 @@ async function handle(req, res) {
         return;
       }
       const created = nowIso();
+      if (privateMode) {
+        json(res, 200, { reply, ephemeral: true, messages: [
+          { role: 'user', content: message, mode },
+          { role: 'assistant', content: reply, mode }
+        ] });
+        return;
+      }
       const userMessageId = crypto.randomUUID();
       const assistantMessageId = crypto.randomUUID();
       db.exec('BEGIN IMMEDIATE');

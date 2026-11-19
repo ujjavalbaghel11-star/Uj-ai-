@@ -87,6 +87,12 @@ async function request(route, options = {}) {
   assert.match(shellHtml, /id="googleLogin"/);
   assert.match(shellHtml, /id="forgotPassword"/);
   assert.match(shellHtml, /id="resetForm"/);
+  assert.match(shellHtml, /id="settingsButton"/);
+  assert.match(shellHtml, /id="themeSetting"/);
+  assert.match(shellHtml, /id="voiceSetting"/);
+  assert.match(shellHtml, /id="privacySetting"/);
+  assert.match(shellHtml, /id="webSearchButton"/);
+  assert.match(shellHtml, /id="imageButton"/);
   assert.match(shellHtml, /data-phone-action="youtube"/);
   const clientJs = await fetch(`${baseUrl}/app.js`);
   const clientSource = await clientJs.text();
@@ -97,9 +103,14 @@ async function request(route, options = {}) {
   assert.equal(manifest.status, 200);
   assert.match(await manifest.text(), /"display": "standalone"/);
   assert.equal((await fetch(`${baseUrl}/icon-192.png`)).status, 200);
+  const update = await request('/api/app/update');
+  assert.equal(update.response.status, 200);
+  assert.equal(update.data.latestCode, 331);
 
   const unauth = await request('/api/chats');
   assert.equal(unauth.response.status, 401);
+  assert.equal((await request('/api/search', { method: 'POST', csrf: false, body: { query: 'UJ AI' } })).response.status, 401);
+  assert.equal((await request('/api/images/generate', { method: 'POST', csrf: false, body: { prompt: 'UJ logo' } })).response.status, 401);
 
   const crossOrigin = await request('/api/auth/register', {
     method: 'POST',
@@ -128,6 +139,9 @@ async function request(route, options = {}) {
 
   const register = await request('/api/auth/register', { method: 'POST', csrf: false, body: { email: 'tester@example.com', password: 'A-strong-test-pass-123' } });
   assert.equal(register.response.status, 201, JSON.stringify(register.data));
+  assert.equal((await request('/api/search', { method: 'POST', body: { query: '' } })).response.status, 400);
+  assert.equal((await request('/api/search', { method: 'POST', body: { query: 'UJ AI' } })).response.status, 503);
+  assert.equal((await request('/api/images/generate', { method: 'POST', body: { prompt: 'UJ logo' } })).response.status, 503);
   await new Promise(resolve => setTimeout(resolve, 10));
   assert.equal((logs.match(/\[UJ AI origin rejected\]/g) || []).length, 1, 'allowed requests must not emit origin-rejection diagnostics');
   assert.equal(register.data.authenticated, true);
@@ -254,6 +268,7 @@ async function request(route, options = {}) {
 test('configured server-side provider replies are persisted and available to a second sign-in', async t => {
   const temp = fs.mkdtempSync(path.join(os.tmpdir(), 'ujai-provider-test-'));
   let providerRequests = 0;
+  const providerMessages = [];
   const provider = http.createServer(async (req, res) => {
     let raw = '';
     for await (const chunk of req) raw += chunk.toString();
@@ -262,6 +277,7 @@ test('configured server-side provider replies are persisted and available to a s
     assert.equal(req.url, '/v1/chat/completions');
     assert.equal(req.headers.authorization, 'Bearer test-only-key');
     assert.ok(Array.isArray(body.messages));
+    providerMessages.push(body.messages);
     res.writeHead(200, { 'Content-Type': 'application/json' });
     res.end(JSON.stringify({ choices: [{ message: { content: 'UJ AI test reply — server provider connected.' } }] }));
   });
@@ -331,6 +347,17 @@ test('configured server-side provider replies are persisted and available to a s
   assert.equal(messages.data.messages.length, 2);
   assert.equal(messages.data.messages[0].content, 'Hello from the smoke test');
   assert.equal(messages.data.messages[1].content, 'UJ AI test reply — server provider connected.');
+
+  const privateSent = await call('/api/chat', { method: 'POST', body: {
+    chatId: chatId2, message: 'This should stay temporary', mode: 'coding', privateMode: true
+  } });
+  assert.equal(privateSent.response.status, 200);
+  assert.equal(privateSent.data.ephemeral, true);
+  assert.equal(providerRequests, 2);
+  assert.ok(providerMessages[1].some(item => item.content === 'This should stay temporary'));
+  assert.ok(!providerMessages[1].some(item => item.content === 'Hello from the smoke test'), 'private requests must not send saved history to the provider');
+  const afterPrivate = await call(`/api/chats/${chatId2}/messages`);
+  assert.equal(afterPrivate.data.messages.length, 2, 'temporary messages must not be persisted');
 
   await call('/api/auth/logout', { method: 'POST', body: {} });
   sessionCookie = '';

@@ -75,6 +75,7 @@
       <header class="topbar">
         <button class="icon-button menu-button" id="openSidebar" type="button" aria-label="Open chats">☰</button>
         <div class="topbar-title"><strong>UJ AI</strong><span id="connectionStatus" class="connection-status">Connecting…</span></div>
+        <button id="settingsButton" class="icon-button" type="button" aria-label="Settings" title="Settings">⚙</button>
         <button id="installApp" class="secondary install-button" type="button" hidden>Install app</button>
       </header>
 
@@ -130,13 +131,24 @@
           <button class="send-button" id="sendButton" type="submit" aria-label="Send message">➤</button>
         </form>
         <div class="composer-tools">
-          <div class="voice-controls"><button id="voiceToggle" class="text-button" type="button" aria-pressed="true">🔊 जवाब बोलें: On</button><button id="voiceConversation" class="text-button" type="button" aria-pressed="false">🎧 बातचीत मोड: Off</button><button id="stopSpeaking" class="text-button" type="button">⏹ रोकें</button></div>
+          <div class="voice-controls"><button id="voiceToggle" class="text-button" type="button" aria-pressed="true">🔊 जवाब बोलें: On</button><button id="voiceConversation" class="text-button" type="button" aria-pressed="false">🎧 बातचीत मोड: Off</button><button id="stopSpeaking" class="text-button" type="button">⏹ रोकें</button><button id="webSearchButton" class="text-button" type="button">🌐 Search</button><button id="imageButton" class="text-button" type="button">🖼 Image</button></div>
           <span>Voice के लिए microphone permission और supported browser/HTTPS जरूरी है।</span>
         </div>
       </footer>
     </section>
   </div>
   <div id="sidebarScrim" class="sidebar-scrim" hidden></div>
+  <dialog id="settingsDialog" class="settings-dialog">
+    <form method="dialog">
+      <div class="settings-head"><div><strong>UJ AI Settings</strong><small>Assistant identity: UJ</small></div><button class="icon-button" value="close" aria-label="Close settings">×</button></div>
+      <label>Theme<select id="themeSetting"><option value="dark">Dark</option><option value="light">Light</option></select></label>
+      <label>Language<select id="languageSetting"><option value="hi-IN">Hindi / Hinglish</option><option value="en-IN">English (India)</option></select></label>
+      <label>Voice<select id="voiceSetting"><option value="auto">Automatic UJ voice</option><option value="hi-IN">Hindi</option><option value="en-IN">English (India)</option></select></label>
+      <label class="setting-toggle"><span>Temporary chat (don’t save messages)</span><input id="privacySetting" type="checkbox"></label>
+      <div class="settings-actions"><button id="permissionSettings" type="button" class="secondary">App permissions</button><button id="checkUpdate" type="button" class="secondary">Check updates</button></div>
+      <p id="settingsStatus" class="status" role="status"></p>
+    </form>
+  </dialog>
   <script src="/app.js" defer></script>
 </body>
 </html>
