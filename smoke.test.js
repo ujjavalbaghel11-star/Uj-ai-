@@ -70,6 +70,7 @@ async function request(route, options = {}) {
   assert.equal(health.data.ok, true);
   assert.equal(health.data.aiReady, false);
   assert.equal(health.data.imageGenerationReady, false);
+  assert.equal(health.data.githubOAuthReady, false);
   assert.equal(Object.hasOwn(health.data, 'providers'), false, 'provider identities should not be exposed');
 
   const shell = await fetch(`${baseUrl}/`);
@@ -77,9 +78,15 @@ async function request(route, options = {}) {
   const shellHtml = await shell.text();
   assert.match(shellHtml, /UJ AI में स्वागत है/);
   assert.match(shellHtml, /data-mode=\"cybersecurity\"/);
+  assert.match(shellHtml, /data-mode=\"jarvis\"/);
   assert.match(shellHtml, /id=\"attachButton\"/);
   assert.match(shellHtml, /id="phoneControl"/);
   assert.match(shellHtml, /id="wakeButton"/);
+  assert.match(shellHtml, /id="openDevWorkspace"/);
+  assert.match(shellHtml, /id="devWorkspaceModal"/);
+  assert.match(shellHtml, /id="githubConnect"/);
+  assert.match(shellHtml, /id="githubPush"/);
+  assert.match(shellHtml, /id="githubPull"/);
   assert.match(shellHtml, /id="generateThemeImage"/);
   assert.match(shellHtml, /data-phone-action="youtube"/);
   const clientJs = await fetch(`${baseUrl}/app.js`);
@@ -89,6 +96,8 @@ async function request(route, options = {}) {
   assert.match(clientSource, /UJ Wake/);
   assert.match(clientSource, /android\.settings\.WIFI_SETTINGS/);
   assert.match(clientSource, /android\.media\.action\.IMAGE_CAPTURE/);
+  assert.match(clientSource, /async function githubSync/);
+  assert.match(clientSource, /githubSync\('pull'\)/);
   const manifest = await fetch(`${baseUrl}/manifest.webmanifest`);
   assert.equal(manifest.status, 200);
   assert.match(await manifest.text(), /"display": "standalone"/);
@@ -137,6 +146,9 @@ async function request(route, options = {}) {
   const folaxChat = await request('/api/chats', { method: 'POST', body: { mode: 'folax' } });
   assert.equal(folaxChat.response.status, 201);
   assert.equal(folaxChat.data.chat.mode, 'folax');
+  const jarvisChat = await request('/api/chats', { method: 'POST', body: { mode: 'jarvis' } });
+  assert.equal(jarvisChat.response.status, 201);
+  assert.equal(jarvisChat.data.chat.mode, 'jarvis');
 
   const noProvider = await request('/api/chat', { method: 'POST', body: { chatId, message: 'Test message', mode: 'nursing' } });
   assert.equal(noProvider.response.status, 503);
@@ -157,10 +169,45 @@ async function request(route, options = {}) {
   assert.equal(login.response.status, 200);
   const syncedChats = await request('/api/chats');
   assert.equal(syncedChats.response.status, 200);
-  assert.equal(syncedChats.data.chats.length, 3);
+  const githubStatus = await request('/api/github/status');
+  assert.equal(githubStatus.response.status, 200);
+  assert.equal(githubStatus.data.configured, false);
+  assert.equal(githubStatus.data.connected, false);
+  assert.equal(Object.hasOwn(githubStatus.data, 'token'), false);
+  const githubConnectMissingConfig = await request('/api/github/connect', { method: 'POST', body: {} });
+  assert.equal(githubConnectMissingConfig.response.status, 503);
+  assert.match(githubConnectMissingConfig.data.error, /GITHUB_CLIENT_ID/);
+  const projectForGitHub = await request('/api/projects', { method: 'POST', body: { name: 'Secret Guard Test' } });
+  const secretProjectId = projectForGitHub.data.project.id;
+  await request(`/api/projects/${secretProjectId}/files`, { method: 'PUT', body: { path: '.env', content: 'API_KEY=not-real' } });
+  const blockedSecretPush = await request('/api/github/push', { method: 'POST', body: { projectId: secretProjectId, repo: 'someone/example', branch: 'main' } });
+  assert.equal(blockedSecretPush.response.status, 409, 'push requires a connected GitHub account before any remote operation');
+  await request(`/api/projects/${secretProjectId}`, { method: 'DELETE', body: {} });
+  const githubReposNotConnected = await request('/api/github/repos');
+  assert.equal(githubReposNotConnected.response.status, 409);
+
+  const projectCreate = await request('/api/projects', { method: 'POST', body: { name: 'UJ Demo', description: 'Cloud workspace test' } });
+  assert.equal(projectCreate.response.status, 201);
+  const projectId = projectCreate.data.project.id;
+  const fileSave = await request(`/api/projects/${projectId}/files`, { method: 'PUT', body: { path: 'src/main.js', content: 'console.log("UJ");' } });
+  assert.equal(fileSave.response.status, 200);
+  const fileTraversal = await request(`/api/projects/${projectId}/files`, { method: 'PUT', body: { path: '../secret.txt', content: 'nope' } });
+  assert.equal(fileTraversal.response.status, 400);
+  const projectRead = await request(`/api/projects/${projectId}/files`);
+  assert.equal(projectRead.response.status, 200);
+  assert.equal(projectRead.data.files.length, 1);
+  assert.equal(projectRead.data.files[0].content, 'console.log("UJ");');
+  const projectList = await request('/api/projects');
+  assert.equal(projectList.data.projects.length, 1);
+  const projectDelete = await request(`/api/projects/${projectId}`, { method: 'DELETE', body: {} });
+  assert.equal(projectDelete.response.status, 200);
+  assert.equal((await request('/api/projects')).data.projects.length, 0);
+
+  assert.equal(syncedChats.data.chats.length, 4);
   assert.ok(syncedChats.data.chats.some(item => item.id === chatId), 'same account should see its saved chats after signing in again');
   assert.ok(syncedChats.data.chats.some(item => item.mode === 'cybersecurity'), 'cybersecurity chat mode should persist');
   assert.ok(syncedChats.data.chats.some(item => item.mode === 'folax'), 'Folax mode should persist');
+  assert.ok(syncedChats.data.chats.some(item => item.mode === 'jarvis'), 'JARVIS mode should persist');
 
   const voiceUnconfigured = await request('/api/voice/tts', { method: 'POST', body: { text: 'नमस्ते, मैं UJ हूँ।' } });
   assert.equal(voiceUnconfigured.response.status, 503, 'HeyGen TTS must stay unavailable until server credentials are configured');

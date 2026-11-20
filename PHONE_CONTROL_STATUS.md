@@ -1,30 +1,28 @@
-# UJ AI Phone Control — Build 3.6
+# UJ AI Phone Control — v3.2.14
 
-## Implemented in this build
-- Added a responsive Phone Control panel to the signed-in UJ AI app.
-- Added launch shortcuts for YouTube, WhatsApp, Camera, Chrome, Android Settings, Wi-Fi settings, Bluetooth settings, and Phone dialer.
-- Added Hindi/Hinglish voice/text phrase detection for supported app/settings launch commands.
-- Added Android Intent URL launch attempts and known iOS URL-scheme attempts.
-- Added an on-screen retry button when the browser does not launch the target app.
-- Calls are not placed and SMS/WhatsApp messages are not sent automatically. The phone's own UI remains responsible for user confirmation.
-- Updated the service-worker cache version so the new controls are fetched after reload/update.
+## Implemented in source
+- Visible Phone Control panel in the UJ AI app.
+- Android native shortcuts for YouTube, WhatsApp, Camera, Chrome, Android Settings, Wi-Fi settings, Bluetooth settings, Phone dialer, Messages, SMS composer, Contacts, Maps, Clock, Set Alarm, Calendar, and Email.
+- Hindi/Hinglish voice/text phrase detection for supported app/settings launch commands.
+- Default Android Assistant role request on Android 10+ where the OS exposes the role.
+- Android intents open the relevant app or compose/entry screen. The user remains responsible for reviewing and confirming calls, messages, alarms, and calendar entries.
 
-## Verification performed here
+## Verification in this workspace
 - `node --check server.js` — PASS
 - `node --check public/app.js` — PASS
 - `node --check public/sw.js` — PASS
-- `npm test` — PASS (2/2 test suites)
-- Smoke test now checks the Phone Control UI, a launch action, and Android intent command strings.
+- `npm test` — PASS (8/8 tests)
+- Tests verify source declarations, UI shortcuts, local mock API flows and app-shell behavior. They do not prove that each intent resolves on a particular phone.
 
-## Not completed / blockers
-- No Android APK was built; this workspace does not contain a configured Android SDK/Gradle project.
-- No native Android Accessibility Service or Capacitor plugin was added.
-- No real Android or iPhone device test was possible in this environment.
-- Browser/PWA app launching depends on Android browser support, installed target apps, and OS prompts. iOS custom URL schemes are restricted and may not work for every target.
-- A PWA cannot silently control arbitrary apps, inspect their private data, press buttons inside them, or change all device settings. Those capabilities require native Android code, explicit permissions, platform policy review, and user confirmation.
-- Live hosting/HTTPS and real AI provider credentials remain separate deployment requirements.
+## Not implemented / not verified
+- No Android APK build or installation was performed in this workspace.
+- No real Android device test was possible here.
+- No always-listening custom wake word or lock-screen background listening is implemented.
+- The native system assistant panel currently opens the full UJ AI app; it is not yet a full interactive in-session chat/voice panel.
+- No unrestricted control of arbitrary apps, automatic call/message sending, reading private app data, notification scraping, call recording, or accessibility-based button automation is implemented.
+- Some shortcuts depend on compatible apps being installed and Android/phone-maker behavior.
 
-## Safe-use design
-- Launch-only actions are supported.
-- Dialer opens the phone dialer; it does not initiate a call.
-- No automatic message sending, contact scraping, call recording, notification reading, or background surveillance is implemented.
+## Safety and platform constraints
+- UJ AI uses explicit Android intents and user-visible OS screens.
+- It does not silently send SMS/WhatsApp messages, place calls, or create calendar events.
+- More advanced actions require separate native implementation, clear user consent, Android permissions, Play policy review, and real-device testing.

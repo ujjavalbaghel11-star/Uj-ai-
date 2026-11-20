@@ -15,6 +15,8 @@ let voiceRestartTimer = null;
 let voiceRetryDelay = 500;
 let installPrompt = null;
 let refreshTimer = null;
+let activeProjectId = null;
+let projectFiles = [];
 
 function setStatus(message, kind = 'muted') {
   const el = $('#composerStatus');
@@ -122,7 +124,7 @@ async function loadMessages() {
 }
 function updateModeButtons() {
   $$('[data-mode]').forEach(button => button.classList.toggle('active', button.dataset.mode === currentMode));
-  const hints = { personal: 'UJ AI से कुछ भी पूछें…', nursing: 'Nursing Study के बारे में पूछें…', coding: 'Code या programming के बारे में पूछें…', cybersecurity: 'Cybersecurity, networking या logs के बारे में पूछें…', folax: 'Folax Mode में कुछ भी पूछें…' };
+  const hints = { personal: 'UJ AI से कुछ भी पूछें…', nursing: 'Nursing Study के बारे में पूछें…', coding: 'Code या programming के बारे में पूछें…', cybersecurity: 'Cybersecurity, networking या logs के बारे में पूछें…', folax: 'Folax Mode में कुछ भी पूछें…', jarvis: 'UJ JARVIS को command या सवाल बताएं…' };
   $('#messageInput').placeholder = hints[currentMode] || hints.personal;
 }
 async function enterApp(user) {
@@ -141,6 +143,10 @@ async function enterApp(user) {
   $('#connectionStatus').textContent = health.aiReady ? 'Secure server connected' : 'AI server key setup pending';
   $('#passkeyLogin').hidden = !health.passkeysAvailable || !window.PublicKeyCredential;
   $('#addPasskey').hidden = !health.passkeysAvailable || !window.PublicKeyCredential;
+  await loadProjects();
+  await loadGithubStatus().catch(() => {});
+  const githubResult = new URLSearchParams(location.search).get('github');
+  if (githubResult) { $('#devWorkspaceStatus').textContent = githubResult === 'connected' ? 'GitHub successfully connect ho gaya.' : `GitHub connection: ${githubResult}`; history.replaceState({}, '', location.pathname); }
   const chats = await loadChats(null);
   if (chats.length) await openChat(chats[0].id, chats[0].mode);
   else await createChat('personal');
@@ -212,6 +218,109 @@ $('#logout').addEventListener('click', async () => {
   showAuth();
   setAuthStatus('Aap sign out ho gaye.');
 });
+async function loadGithubStatus() {
+  const status = await api('/api/github/status');
+  $('#githubConnect').hidden = status.connected;
+  $('#githubDisconnect').hidden = !status.connected;
+  $('#githubRefreshRepos').disabled = !status.connected;
+  $('#githubPush').disabled = !status.connected;
+  $('#githubPull').disabled = !status.connected;
+  $('#githubStatus').textContent = status.connected ? `Connected: @${status.login}` : status.configured ? 'GitHub connect karein' : 'Setup pending: OAuth keys required';
+  if (status.connected) await refreshGithubRepos();
+  return status;
+}
+async function refreshGithubRepos() {
+  const select = $('#githubRepoSelect');
+  const previous = select.value;
+  const data = await api('/api/github/repos');
+  select.replaceChildren();
+  const placeholder = document.createElement('option'); placeholder.value = ''; placeholder.textContent = 'Repository चुनें'; select.append(placeholder);
+  for (const repo of data.repos) {
+    const option = document.createElement('option'); option.value = repo.full_name;
+    option.textContent = `${repo.full_name}${repo.can_push ? '' : ' (read-only)'}`;
+    option.dataset.branch = repo.default_branch || 'main'; option.dataset.push = String(repo.can_push);
+    select.append(option);
+  }
+  if ([...select.options].some(option => option.value === previous)) select.value = previous;
+  $('#githubStatus').textContent = `${data.repos.length} public repositories loaded`;
+}
+async function githubSync(direction) {
+  if (!activeProjectId) { $('#devWorkspaceStatus').textContent = 'Pehle project select karein.'; return; }
+  const select = $('#githubRepoSelect'); const repo = select.value;
+  if (!repo) { $('#devWorkspaceStatus').textContent = 'GitHub repository select karein.'; return; }
+  if (direction === 'pull' && !window.confirm('GitHub ki files current project mein merge hongi. Same naam wali local files update hongi. Continue?')) return;
+  const branch = select.selectedOptions[0]?.dataset.branch || 'main';
+  const button = direction === 'push' ? $('#githubPush') : $('#githubPull'); button.disabled = true;
+  $('#devWorkspaceStatus').textContent = direction === 'push' ? 'GitHub par files push ho rahi hain…' : 'GitHub se files import ho rahi hain…';
+  try {
+    const data = await api(`/api/github/${direction}`, { method: 'POST', body: { projectId: activeProjectId, repo, branch } });
+    await openProject(activeProjectId);
+    $('#devWorkspaceStatus').textContent = direction === 'push' ? `${data.files} files push hui. Commit: ${data.commit.slice(0, 8)}` : `${data.files} files GitHub se merge hui.`;
+    if (direction === 'push' && data.url) $('#devWorkspaceStatus').textContent += ` · ${data.url}`;
+  } catch (error) { $('#devWorkspaceStatus').textContent = error.message; }
+  finally { button.disabled = false; }
+}
+
+async function loadProjects(preferredId = activeProjectId) {
+  const data = await api('/api/projects');
+  const list = $('#projectList'); list.replaceChildren();
+  for (const project of data.projects) {
+    const button = document.createElement('button'); button.type = 'button';
+    button.className = `project-item${project.id === preferredId ? ' active' : ''}`;
+    const name = document.createElement('strong'); name.textContent = project.name;
+    const meta = document.createElement('small'); meta.textContent = `${project.file_count} files`;
+    button.append(name, meta); button.addEventListener('click', () => openProject(project.id)); list.append(button);
+  }
+  if (!data.projects.length) { const empty = document.createElement('p'); empty.className = 'dev-empty'; empty.textContent = 'Abhi koi project nahi. New Project dabayein.'; list.append(empty); }
+  return data.projects;
+}
+async function openProject(id) {
+  activeProjectId = id;
+  const data = await api(`/api/projects/${encodeURIComponent(id)}/files`);
+  projectFiles = data.files;
+  await loadProjects(id);
+  if (projectFiles.length) {
+    const current = projectFiles.find(file => file.path === $('#devFilePath').value) || projectFiles[0];
+    $('#devFilePath').value = current.path; $('#devCodeEditor').value = current.content;
+  } else { $('#devFilePath').value = 'README.md'; $('#devCodeEditor').value = ''; }
+  $('#devWorkspaceStatus').textContent = `Project ready · ${projectFiles.length} files`;
+}
+$('#openDevWorkspace').addEventListener('click', async () => {
+  $('#devWorkspaceModal').hidden = false;
+  try { const projects = await loadProjects(); if (projects.length && !activeProjectId) await openProject(projects[0].id); await loadGithubStatus(); }
+  catch (error) { $('#devWorkspaceStatus').textContent = error.message; }
+});
+$('#closeDevWorkspace').addEventListener('click', () => { $('#devWorkspaceModal').hidden = true; });
+$('#githubConnect').addEventListener('click', async () => {
+  try { const data = await api('/api/github/connect', { method: 'POST', body: {} }); location.href = data.authorizeUrl; }
+  catch (error) { $('#githubStatus').textContent = error.message; }
+});
+$('#githubDisconnect').addEventListener('click', async () => {
+  if (!window.confirm('UJ AI se GitHub connection disconnect karein?')) return;
+  try { await api('/api/github/disconnect', { method: 'POST', body: {} }); await loadGithubStatus(); $('#githubRepoSelect').replaceChildren(); $('#githubStatus').textContent = 'GitHub disconnected'; }
+  catch (error) { $('#githubStatus').textContent = error.message; }
+});
+$('#githubRefreshRepos').addEventListener('click', () => refreshGithubRepos().catch(error => $('#githubStatus').textContent = error.message));
+$('#githubPush').addEventListener('click', () => githubSync('push'));
+$('#githubPull').addEventListener('click', () => githubSync('pull'));
+
+$('#createProject').addEventListener('click', async () => {
+  const name = window.prompt('Project ka naam:'); if (!name?.trim()) return;
+  try { const data = await api('/api/projects', { method: 'POST', body: { name } }); await openProject(data.project.id); $('#devWorkspaceStatus').textContent = 'Naya project cloud account mein save ho gaya.'; }
+  catch (error) { $('#devWorkspaceStatus').textContent = error.message; }
+});
+$('#saveProjectFile').addEventListener('click', async () => {
+  if (!activeProjectId) { $('#devWorkspaceStatus').textContent = 'Pehle project banayein.'; return; }
+  try {
+    const path = $('#devFilePath').value.trim();
+    await api(`/api/projects/${encodeURIComponent(activeProjectId)}/files`, { method: 'PUT', body: { path, content: $('#devCodeEditor').value } });
+    await openProject(activeProjectId); $('#devWorkspaceStatus').textContent = `${path} cloud mein save ho gayi.`;
+  } catch (error) { $('#devWorkspaceStatus').textContent = error.message; }
+});
+$('#newProjectFile').addEventListener('click', () => { $('#devFilePath').value = window.prompt('New file path:', 'src/app.js') || $('#devFilePath').value; $('#devCodeEditor').value = ''; });
+$('#loadProjectFiles').addEventListener('click', () => activeProjectId ? openProject(activeProjectId).catch(error => $('#devWorkspaceStatus').textContent = error.message) : null);
+$('#devWorkspaceModal').addEventListener('click', event => { if (event.target === $('#devWorkspaceModal')) $('#devWorkspaceModal').hidden = true; });
+
 $('#newChat').addEventListener('click', () => createChat(currentMode).catch(error => setStatus(error.message)));
 
 $$('[data-mode]').forEach(button => button.addEventListener('click', () => {
@@ -274,7 +383,15 @@ const PHONE_ACTIONS = {
   settings: { label: 'Settings', android: 'intent://#Intent;action=android.settings.SETTINGS;end' },
   wifi: { label: 'Wi-Fi settings', android: 'intent://#Intent;action=android.settings.WIFI_SETTINGS;end' },
   bluetooth: { label: 'Bluetooth settings', android: 'intent://#Intent;action=android.settings.BLUETOOTH_SETTINGS;end' },
-  dialer: { label: 'Phone dialer', android: 'tel:', ios: 'tel:' }
+  dialer: { label: 'Phone dialer', android: 'tel:', ios: 'tel:' },
+  messages: { label: 'Messages', android: 'intent://#Intent;action=android.intent.action.MAIN;category=android.intent.category.APP_MESSAGING;end' },
+  sms: { label: 'SMS composer', android: 'sms:', ios: 'sms:' },
+  contacts: { label: 'Contacts', android: 'content://com.android.contacts/contacts', ios: 'contacts://' },
+  maps: { label: 'Maps', android: 'geo:0,0?q=', ios: 'maps://' },
+  clock: { label: 'Clock', android: 'intent://#Intent;action=android.intent.action.SHOW_ALARMS;end' },
+  alarm: { label: 'Set alarm', android: 'intent://#Intent;action=android.intent.action.SET_ALARM;end' },
+  calendar: { label: 'Calendar', android: 'content://com.android.calendar/time' },
+  email: { label: 'Email', android: 'intent://#Intent;action=android.intent.action.MAIN;category=android.intent.category.APP_EMAIL;end' }
 };
 function detectPhoneCommand(text) {
   const value = text.toLocaleLowerCase('en-IN').replace(/[.,!?।]/g, ' ').replace(/\s+/g, ' ').trim();
@@ -286,7 +403,15 @@ function detectPhoneCommand(text) {
     ['wifi', /(?:wifi|wi fi|वाई.?फाई).*(?:setting|सेटिंग).*(?:kholo|open)|(?:wifi|wi fi|वाई.?फाई).*(?:kholo|open)/],
     ['bluetooth', /(?:bluetooth|ब्लूटूथ).*(?:setting|सेटिंग)?.*(?:kholo|open)/],
     ['settings', /(?:phone )?(?:settings|setting|सेटिंग).*(?:kholo|khol do|open)|(?:kholo|open).*(?:settings|setting|सेटिंग)/],
-    ['dialer', /(?:phone|dialer|call screen|डायलर).*(?:kholo|khol do|open)|(?:kholo|open).*(?:phone|dialer|डायलर)/]
+    ['dialer', /(?:phone|dialer|call screen|डायलर).*(?:kholo|khol do|open)|(?:kholo|open).*(?:phone|dialer|डायलर)/],
+    ['messages', /(?:messages|message app|मैसेज).*(?:kholo|khol do|open)|(?:kholo|open).*(?:messages|मैसेज)/],
+    ['sms', /(?:sms|text message|एसएमएस).*(?:likho|compose|kholo|open)|(?:compose|new sms|नया मैसेज)/],
+    ['contacts', /(?:contacts|contact|कॉन्टैक्ट|संपर्क).*(?:kholo|khol do|open)|(?:kholo|open).*(?:contacts|कॉन्टैक्ट)/],
+    ['maps', /(?:maps|map|google maps|नक्शा).*(?:kholo|khol do|open)|(?:kholo|open).*(?:maps|map|नक्शा)/],
+    ['clock', /(?:clock|घड़ी).*(?:kholo|khol do|open)|(?:kholo|open).*(?:clock|घड़ी)/],
+    ['alarm', /(?:alarm|अलार्म).*(?:lagao|set|banao|kholo)|(?:set|lagao).*(?:alarm|अलार्म)/],
+    ['calendar', /(?:calendar|कैलेंडर).*(?:kholo|khol do|open)|(?:kholo|open).*(?:calendar|कैलेंडर)/],
+    ['email', /(?:email|gmail|ईमेल).*(?:kholo|khol do|open)|(?:kholo|open).*(?:email|gmail|ईमेल)/]
   ];
   for (const [key, pattern] of patterns) if (pattern.test(value)) return { key, label: PHONE_ACTIONS[key].label };
   return null;
@@ -296,7 +421,7 @@ async function launchPhoneAction(key) {
   if (!action) return;
   const nativePlugin = window.Capacitor?.Plugins?.UJNative;
   if (nativePlugin?.openPhoneTarget) {
-    try { await nativePlugin.openPhoneTarget({ target: key }); setStatus(`${action.label} खुल गया।`); }
+    try { await nativePlugin.openPhoneTarget({ target: key, query: key === 'maps' ? '' : undefined }); setStatus(`${action.label} खुल गया।`); }
     catch (error) { setStatus(error.message || `${action.label} नहीं खुल सका।`, 'error'); }
     return;
   }

@@ -19,7 +19,7 @@ test('native Android assistant bridge and role declaration are present', () => {
 test('native assistant panel is visible and app version matches project', () => {
   const gradle = readFileSync(new URL('../android/app/build.gradle', import.meta.url), 'utf8');
   const session = readFileSync(new URL('../android/app/src/main/java/com/ujai/app/UJVoiceInteractionSessionService.java', import.meta.url), 'utf8');
-  assert.match(gradle, /versionName '3\.2\.12-native-preview'/);
+  assert.match(gradle, /versionName '3\.2\.18-native-preview'/);
   assert.match(session, /onCreateContentView/);
   assert.match(session, /UJ AI खोलें/);
   assert.match(session, /startActivity/);
@@ -32,4 +32,18 @@ test('original UJ background asset is packaged and applied to the chat shell', (
   assert.equal(existsSync(image), true);
   assert.match(css, /url\([\"']?\/images\/uj-background\.png/);
   assert.match(css, /linear-gradient\(rgba\(7,12,27/);
+});
+
+
+test('safe Android app intents include messaging, contacts, maps, alarms and calendar', () => {
+  const plugin = readFileSync(new URL('../android/app/src/main/java/com/ujai/app/UJNativePlugin.java', import.meta.url), 'utf8');
+  const html = readFileSync(new URL('../public/index.html', import.meta.url), 'utf8');
+  const app = readFileSync(new URL('../public/app.js', import.meta.url), 'utf8');
+  for (const action of ['messages', 'sms', 'contacts', 'maps', 'clock', 'alarm', 'calendar', 'email']) {
+    assert.match(plugin, new RegExp('case \"' + action + '\"'));
+    assert.match(html, new RegExp('data-phone-action=\"' + action + '\"'));
+    assert.match(app, new RegExp(action + ': \{ label:'));
+  }
+  assert.match(plugin, /ACTION_SENDTO/);
+  assert.match(plugin, /EXTRA_SKIP_UI, false/);
 });

@@ -1,4 +1,4 @@
-const CACHE_NAME = 'uj-ai-shell-v3.2.12-native-android';
+const CACHE_NAME = 'uj-ai-shell-v3.2.18-github-sync';
 const APP_SHELL = [
   '/',
   '/index.html',

@@ -1,4 +1,4 @@
-# UJ AI Cross-Platform — v3.2.12 Native Android Build Package
+# UJ AI Cross-Platform — v3.2.18 GitHub Sync + Native Android Source Package
 
 A responsive Hindi/Hinglish Progressive Web App for Android, iPhone and desktop browsers, backed by a private Node.js server.
 
@@ -155,7 +155,7 @@ Tap **🎙 UJ Wake** inside the signed-in app. UJ first checks the server health
 
 This is not an always-on background wake word service and does not yet make UJ the Android system-wide default assistant. That requires a native Android build and Android assistant/voice-interaction role integration, followed by testing on the target phone. A server wake request also works only if the selected host supports waking on inbound requests.
 
-Current package version: **3.2.12**.
+Current package version: **3.2.18**.
 
 
 ## Native Android build status (v3.2.12)
@@ -164,3 +164,23 @@ The Android project and GitHub Actions debug-APK workflow are included. Push the
 
 ## v3.2.12 update package
 This ZIP is a complete project source package based on the inspected v3.2.10 native Android project. It increments the app/package version to 3.2.12 and includes the original chat background asset and retains the GitHub Actions workflow at `.github/workflows/android-apk.yml`. It is intended to be extracted and used to update the contents of the existing GitHub repository (do not upload only the ZIP if you want Actions to detect the workflow). No APK is bundled; GitHub Actions must compile it after the source files are pushed.
+
+
+## v3.2.15 — UJ JARVIS mode
+A dedicated JARVIS chat mode is now available in the mode row. It has its own server-side prompt, retains its mode in saved chats, and clearly distinguishes supported actions from those needing confirmation or device permissions.
+
+## v3.2.17 — Cloud-backed Developer Workspace
+- Open **Developer Workspace** from the sidebar to create projects and save code/text files to the signed-in account's server-side SQLite database.
+- Project/file APIs are authenticated, CSRF-protected, and scoped to the current account.
+- Storage limits: 100 projects/account, 200 files/project, 48 KB/file, 1 MB/project.
+- This is a basic source-file workspace, not a full IDE: it does not execute code, install dependencies, build APKs, or provide GitHub sync yet.
+- Production hosting must use persistent storage for the SQLite database. GitHub integration requires a separately authorized OAuth connection.
+
+
+## v3.2.18 — GitHub OAuth + Repository Sync
+- Developer Workspace can connect a GitHub account through an OAuth App using expiring one-time state. Tokens are encrypted server-side with AES-256-GCM.
+- Public repository list, Push (one Git commit for project text files), and Pull (merge UTF-8 text files; local-only files remain).
+- Current OAuth scope is `public_repo read:user`; private repositories are not supported.
+- Configure `GITHUB_CLIENT_ID`, `GITHUB_CLIENT_SECRET`, `GITHUB_CALLBACK_URL`, and a stable 32-byte `UJ_TOKEN_ENCRYPTION_KEY` in hosting secrets. See `GITHUB_OAUTH_SETUP_HI.md`.
+- Render persistent-disk deployment blueprint and health check are documented in `DEPLOY_RENDER_HI.md`. No live hosting account or secrets were configured by this source package.
+- Android debug APK remains a GitHub Actions build artifact; this archive does not include a compiled APK.
