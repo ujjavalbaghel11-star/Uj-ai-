@@ -439,7 +439,7 @@ async function handle(req, res) {
     if (req.method !== 'GET' && !originAllowed(req)) { json(res, 403, { error: 'Cross-site request blocked.' }); return; }
     if (pathname === '/api/health' && req.method === 'GET') {
       const aiReady = Boolean(process.env.GEMINI_API_KEY || process.env.OPENAI_API_KEY || (process.env.META_API_KEY && process.env.META_BASE_URL && process.env.META_MODEL));
-      json(res, 200, { ok: true, app: 'UJ AI', version: '3.2.18', githubOAuthReady: Boolean(process.env.GITHUB_CLIENT_ID && process.env.GITHUB_CLIENT_SECRET && githubEncryptionKey()), aiReady, imageGenerationReady: Boolean(process.env.OPENAI_API_KEY), voiceTtsReady: Boolean(process.env.HEYGEN_API_KEY && process.env.HEYGEN_VOICE_ID), passkeysAvailable: Boolean(webauthn) });
+      json(res, 200, { ok: true, app: 'UJ AI', version: '3.2.19', githubOAuthReady: Boolean(process.env.GITHUB_CLIENT_ID && process.env.GITHUB_CLIENT_SECRET && githubEncryptionKey()), aiReady, imageGenerationReady: Boolean(process.env.OPENAI_API_KEY), voiceTtsReady: Boolean(process.env.HEYGEN_API_KEY && process.env.HEYGEN_VOICE_ID), passkeysAvailable: Boolean(webauthn) });
       return;
     }
     if (pathname === '/api/github/callback' && req.method === 'GET') {

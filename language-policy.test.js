@@ -9,5 +9,5 @@ test('all AI provider prompts enforce same-language replies and spelling', () =>
   assert.match(source, /correctly spelled English only/);
   assert.match(source, /Hinglish\/Romanized Hindi/);
   assert.equal((source.match(/\$\{LANGUAGE_POLICY\}/g) || []).length, 2);
-  assert.match(source, /version: '3\.2\.18'/);
+  assert.match(source, /version: '3\.2\.19'/);
 });

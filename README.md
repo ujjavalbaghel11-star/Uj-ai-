@@ -1,4 +1,4 @@
-# UJ AI Cross-Platform — v3.2.18 GitHub Sync + Native Android Source Package
+# UJ AI Cross-Platform — v3.2.19 Developer Studio + GitHub Sync + Native Android Source Package
 
 A responsive Hindi/Hinglish Progressive Web App for Android, iPhone and desktop browsers, backed by a private Node.js server.
 
@@ -155,7 +155,7 @@ Tap **🎙 UJ Wake** inside the signed-in app. UJ first checks the server health
 
 This is not an always-on background wake word service and does not yet make UJ the Android system-wide default assistant. That requires a native Android build and Android assistant/voice-interaction role integration, followed by testing on the target phone. A server wake request also works only if the selected host supports waking on inbound requests.
 
-Current package version: **3.2.18**.
+Current package version: **3.2.19**.
 
 
 ## Native Android build status (v3.2.12)
@@ -184,3 +184,7 @@ A dedicated JARVIS chat mode is now available in the mode row. It has its own se
 - Configure `GITHUB_CLIENT_ID`, `GITHUB_CLIENT_SECRET`, `GITHUB_CALLBACK_URL`, and a stable 32-byte `UJ_TOKEN_ENCRYPTION_KEY` in hosting secrets. See `GITHUB_OAUTH_SETUP_HI.md`.
 - Render persistent-disk deployment blueprint and health check are documented in `DEPLOY_RENDER_HI.md`. No live hosting account or secrets were configured by this source package.
 - Android debug APK remains a GitHub Actions build artifact; this archive does not include a compiled APK.
+
+## v3.2.19 — UJ Developer Studio (initial workspace)
+
+Adds a responsive three-panel Developer Studio with project/file explorer, editable file view, save/new-file workflow, a code-question handoff to the main UJ chat, and a safe project-check preview. The terminal is intentionally non-executing: arbitrary shell commands and remote builds are not enabled. A true Codespaces-style runtime still requires a separately deployed, isolated build/runner service. GitHub OAuth and public-repository Push/Pull from v3.2.18 are retained.

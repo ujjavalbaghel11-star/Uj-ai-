@@ -1,4 +1,4 @@
-# UJ AI v3.2.18 — APK build guide
+# UJ AI v3.2.19 — GitHub se APK build guide
 
 1. Upload/extract every item in this ZIP into the root of the GitHub repository `Uj-ai-` (the folder containing `package.json`). Include the hidden `.github` folder.
 2. Commit the files to the `main` branch.
