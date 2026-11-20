@@ -3,6 +3,7 @@
   "appName": "UJ AI",
   "webDir": "public",
   "server": {
+    "url": "https://uj-ai-1.onrender.com",
     "androidScheme": "https"
   }
 }
