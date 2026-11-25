@@ -1,4 +1,4 @@
-# UJ AI v3.2.19 — GitHub se APK build guide
+# UJ AI v3.2.12 — APK build guide
 
 1. Upload/extract every item in this ZIP into the root of the GitHub repository `Uj-ai-` (the folder containing `package.json`). Include the hidden `.github` folder.
 2. Commit the files to the `main` branch.
@@ -8,6 +8,3 @@
 6. Extract the downloaded artifact ZIP and install `app-debug.apk` on the Android phone.
 
 Important: this source ZIP is not itself an APK. A successful GitHub Actions run is still required to create the APK. The first installation may show Android's normal install confirmation. Real AI services also require server-side API credentials configured on the hosting service; do not put API keys in this ZIP or the Android app.
-
-
-Note: APK compilation is not available in this ChatGPT runtime because Android SDK/Gradle are absent. The GitHub Actions workflow in `.github/workflows/android-apk.yml` is the build path after the source project is pushed to the repository root.

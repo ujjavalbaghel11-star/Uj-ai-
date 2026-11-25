@@ -19,7 +19,7 @@ test('native Android assistant bridge and role declaration are present', () => {
 test('native assistant panel is visible and app version matches project', () => {
   const gradle = readFileSync(new URL('../android/app/build.gradle', import.meta.url), 'utf8');
   const session = readFileSync(new URL('../android/app/src/main/java/com/ujai/app/UJVoiceInteractionSessionService.java', import.meta.url), 'utf8');
-  assert.match(gradle, /versionName '3\.2\.18-native-preview'/);
+  assert.match(gradle, /versionName '3\.2\.17-native-preview'/);
   assert.match(session, /onCreateContentView/);
   assert.match(session, /UJ AI खोलें/);
   assert.match(session, /startActivity/);

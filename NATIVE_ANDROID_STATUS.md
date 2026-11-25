@@ -1,4 +1,4 @@
-# UJ AI Native Android Foundation — v3.2.18
+# UJ AI Native Android Foundation — v3.2.14
 
 ## Implemented in this project
 - Capacitor Android application source (`android/`) using package `com.ujai.app`.
@@ -18,9 +18,3 @@
 - Confirm UJ AI appears under Android Settings > Apps > Default apps > Digital assistant app, then select it if offered. Device makers can restrict this.
 - The native assistant panel currently opens the full UJ AI app; it is not yet a full in-session chat interface.
 - This project does not implement an always-listening custom wake word. Lock-screen/background wake-word support needs a separate user-visible microphone foreground service and real-device validation, and may be restricted by Android/phone battery policies.
-
-
-## v3.2.18 status
-- GitHub Actions debug APK workflow is included and configured for manual dispatch or relevant source pushes.
-- This workspace has no Android SDK/Gradle installation, so no APK has been compiled or device-tested here.
-- Background wake-word listening is not implemented. UJ Wake remains foreground-only; a future native microphone foreground service would require an explicit start/stop control, persistent OS notification, microphone permissions and device validation.

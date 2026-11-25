@@ -144,9 +144,6 @@ async function enterApp(user) {
   $('#passkeyLogin').hidden = !health.passkeysAvailable || !window.PublicKeyCredential;
   $('#addPasskey').hidden = !health.passkeysAvailable || !window.PublicKeyCredential;
   await loadProjects();
-  await loadGithubStatus().catch(() => {});
-  const githubResult = new URLSearchParams(location.search).get('github');
-  if (githubResult) { $('#devWorkspaceStatus').textContent = githubResult === 'connected' ? 'GitHub successfully connect ho gaya.' : `GitHub connection: ${githubResult}`; history.replaceState({}, '', location.pathname); }
   const chats = await loadChats(null);
   if (chats.length) await openChat(chats[0].id, chats[0].mode);
   else await createChat('personal');
@@ -218,49 +215,6 @@ $('#logout').addEventListener('click', async () => {
   showAuth();
   setAuthStatus('Aap sign out ho gaye.');
 });
-async function loadGithubStatus() {
-  const status = await api('/api/github/status');
-  $('#githubConnect').hidden = status.connected;
-  $('#githubDisconnect').hidden = !status.connected;
-  $('#githubRefreshRepos').disabled = !status.connected;
-  $('#githubPush').disabled = !status.connected;
-  $('#githubPull').disabled = !status.connected;
-  $('#githubStatus').textContent = status.connected ? `Connected: @${status.login}` : status.configured ? 'GitHub connect karein' : 'Setup pending: OAuth keys required';
-  if (status.connected) await refreshGithubRepos();
-  return status;
-}
-async function refreshGithubRepos() {
-  const select = $('#githubRepoSelect');
-  const previous = select.value;
-  const data = await api('/api/github/repos');
-  select.replaceChildren();
-  const placeholder = document.createElement('option'); placeholder.value = ''; placeholder.textContent = 'Repository चुनें'; select.append(placeholder);
-  for (const repo of data.repos) {
-    const option = document.createElement('option'); option.value = repo.full_name;
-    option.textContent = `${repo.full_name}${repo.can_push ? '' : ' (read-only)'}`;
-    option.dataset.branch = repo.default_branch || 'main'; option.dataset.push = String(repo.can_push);
-    select.append(option);
-  }
-  if ([...select.options].some(option => option.value === previous)) select.value = previous;
-  $('#githubStatus').textContent = `${data.repos.length} public repositories loaded`;
-}
-async function githubSync(direction) {
-  if (!activeProjectId) { $('#devWorkspaceStatus').textContent = 'Pehle project select karein.'; return; }
-  const select = $('#githubRepoSelect'); const repo = select.value;
-  if (!repo) { $('#devWorkspaceStatus').textContent = 'GitHub repository select karein.'; return; }
-  if (direction === 'pull' && !window.confirm('GitHub ki files current project mein merge hongi. Same naam wali local files update hongi. Continue?')) return;
-  const branch = select.selectedOptions[0]?.dataset.branch || 'main';
-  const button = direction === 'push' ? $('#githubPush') : $('#githubPull'); button.disabled = true;
-  $('#devWorkspaceStatus').textContent = direction === 'push' ? 'GitHub par files push ho rahi hain…' : 'GitHub se files import ho rahi hain…';
-  try {
-    const data = await api(`/api/github/${direction}`, { method: 'POST', body: { projectId: activeProjectId, repo, branch } });
-    await openProject(activeProjectId);
-    $('#devWorkspaceStatus').textContent = direction === 'push' ? `${data.files} files push hui. Commit: ${data.commit.slice(0, 8)}` : `${data.files} files GitHub se merge hui.`;
-    if (direction === 'push' && data.url) $('#devWorkspaceStatus').textContent += ` · ${data.url}`;
-  } catch (error) { $('#devWorkspaceStatus').textContent = error.message; }
-  finally { button.disabled = false; }
-}
-
 async function loadProjects(preferredId = activeProjectId) {
   const data = await api('/api/projects');
   const list = $('#projectList'); list.replaceChildren();
@@ -287,23 +241,10 @@ async function openProject(id) {
 }
 $('#openDevWorkspace').addEventListener('click', async () => {
   $('#devWorkspaceModal').hidden = false;
-  try { const projects = await loadProjects(); if (projects.length && !activeProjectId) await openProject(projects[0].id); await loadGithubStatus(); }
+  try { const projects = await loadProjects(); if (projects.length && !activeProjectId) await openProject(projects[0].id); }
   catch (error) { $('#devWorkspaceStatus').textContent = error.message; }
 });
 $('#closeDevWorkspace').addEventListener('click', () => { $('#devWorkspaceModal').hidden = true; });
-$('#githubConnect').addEventListener('click', async () => {
-  try { const data = await api('/api/github/connect', { method: 'POST', body: {} }); location.href = data.authorizeUrl; }
-  catch (error) { $('#githubStatus').textContent = error.message; }
-});
-$('#githubDisconnect').addEventListener('click', async () => {
-  if (!window.confirm('UJ AI se GitHub connection disconnect karein?')) return;
-  try { await api('/api/github/disconnect', { method: 'POST', body: {} }); await loadGithubStatus(); $('#githubRepoSelect').replaceChildren(); $('#githubStatus').textContent = 'GitHub disconnected'; }
-  catch (error) { $('#githubStatus').textContent = error.message; }
-});
-$('#githubRefreshRepos').addEventListener('click', () => refreshGithubRepos().catch(error => $('#githubStatus').textContent = error.message));
-$('#githubPush').addEventListener('click', () => githubSync('push'));
-$('#githubPull').addEventListener('click', () => githubSync('pull'));
-
 $('#createProject').addEventListener('click', async () => {
   const name = window.prompt('Project ka naam:'); if (!name?.trim()) return;
   try { const data = await api('/api/projects', { method: 'POST', body: { name } }); await openProject(data.project.id); $('#devWorkspaceStatus').textContent = 'Naya project cloud account mein save ho gaya.'; }

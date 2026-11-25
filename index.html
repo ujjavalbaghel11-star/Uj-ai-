@@ -1,0 +1,165 @@
+<!doctype html>
+<html lang="hi">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+  <meta name="theme-color" content="#111a32">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="description" content="UJ AI — Hindi and Hinglish personal AI assistant, nursing study tutor and coding helper.">
+  <link rel="manifest" href="/manifest.webmanifest">
+  <link rel="icon" href="/icon.svg" type="image/svg+xml">
+  <link rel="apple-touch-icon" href="/icon-192.png">
+  <link rel="stylesheet" href="/app.css">
+  <title>UJ AI — Personal Assistant</title>
+</head>
+<body>
+  <main id="authScreen" class="auth-screen">
+    <section class="auth-card" aria-labelledby="authTitle">
+      <div class="brand-mark">UJ</div>
+      <p class="eyebrow">YOUR PERSONAL AI</p>
+      <h1 id="authTitle">UJ AI में स्वागत है</h1>
+      <p class="muted auth-intro">एक account से अपने chats को अलग-अलग devices पर sync करें।</p>
+      <div class="auth-tabs" role="group" aria-label="Account action">
+        <button class="tab active" id="signInTab" type="button">Sign in</button>
+        <button class="tab" id="signUpTab" type="button">Create account</button>
+      </div>
+      <form id="authForm" autocomplete="on">
+        <label for="email">Email</label>
+        <input id="email" name="email" type="email" autocomplete="username" required maxlength="254" value="ujjavalbaghel11@gmail.com" placeholder="you@example.com">
+        <label for="password">Password</label>
+        <input id="password" name="password" type="password" autocomplete="current-password" required minlength="10" maxlength="128" placeholder="कम से कम 10 characters">
+        <p id="passwordHint" class="field-hint">अपना account password डालें।</p>
+        <button class="primary full" id="authSubmit" type="submit">Sign in</button>
+      </form>
+      <div class="or-divider"><span>या</span></div>
+      <button class="secondary full" id="passkeyLogin" type="button">पासकी / device biometrics से sign in</button>
+      <p id="authStatus" class="status" role="status" aria-live="polite"></p>
+      <p class="security-note">आपकी AI API keys server पर रहती हैं। HTTPS पर passkey जोड़ने के बाद supported devices fingerprint, Face ID या device PIN से verify कर सकते हैं।</p>
+    </section>
+  </main>
+
+  <div id="appShell" class="app-shell" hidden>
+    <aside class="sidebar" id="sidebar">
+      <div class="sidebar-head">
+        <div class="brand-lockup"><div class="brand-mark small">UJ</div><div><strong>UJ AI</strong><small>Personal assistant</small></div></div>
+        <button class="icon-button mobile-close" id="closeSidebar" type="button" aria-label="Close chats">×</button>
+      </div>
+      <button id="newChat" class="new-chat" type="button"><span>＋</span> नई chat</button>
+      <button id="openDevWorkspace" class="secondary full small-button" type="button" style="margin-top:8px">💻 Developer Workspace</button>
+      <p class="section-label">आपकी chats</p>
+      <nav id="chatList" class="chat-list" aria-label="Chat history"></nav>
+      <div class="sidebar-foot">
+        <div class="account-line"><span class="avatar-dot">U</span><span id="accountEmail" class="account-email">Account</span></div>
+        <button id="setPin" class="secondary full small-button" type="button">🔒 App PIN सेट करें</button>
+        <button id="addPasskey" class="secondary full small-button" type="button">＋ Passkey जोड़ें</button>
+        <button id="logout" class="text-button full" type="button">Sign out</button>
+      </div>
+    </aside>
+
+    <section class="workspace">
+      <header class="topbar">
+        <button class="icon-button menu-button" id="openSidebar" type="button" aria-label="Open chats">☰</button>
+        <div class="topbar-title"><strong>UJ AI</strong><span id="connectionStatus" class="connection-status">Connecting…</span></div>
+        <button id="installApp" class="secondary install-button" type="button" hidden>Install app</button>
+      </header>
+
+      <div class="mode-row" role="group" aria-label="AI mode">
+        <button class="mode-button active" data-mode="personal" type="button">Personal AI</button>
+        <button class="mode-button" data-mode="nursing" type="button">Nursing Study</button>
+        <button class="mode-button" data-mode="coding" type="button">Coding</button>
+        <button class="mode-button" data-mode="cybersecurity" type="button">Cybersecurity</button>
+        <button class="mode-button" data-mode="folax" type="button">Folax Mode</button>
+        <button class="mode-button" data-mode="jarvis" type="button">🤖 UJ JARVIS</button>
+      </div>
+
+      <details class="theme-studio" id="themeStudio">
+        <summary>🎨 AI Theme Studio <span>अपनी पसंद का look बनाएं</span></summary>
+        <div class="theme-studio-body">
+          <label for="themePrompt">Theme का नाम या आइडिया लिखें</label>
+          <div class="theme-prompt-row"><input id="themePrompt" type="text" maxlength="120" placeholder="जैसे: Iron Man, Galaxy, Neon Blue…"><button id="generateTheme" class="primary" type="button">Theme बनाएं</button></div>
+          <div class="theme-presets" aria-label="Theme presets">
+            <button type="button" data-theme-preset="jarvis">🤖 Jarvis</button>
+            <button type="button" data-theme-preset="galaxy">🌌 Galaxy</button>
+            <button type="button" data-theme-preset="neon">💠 Neon Blue</button>
+            <button type="button" data-theme-preset="nature">🌿 Nature</button>
+            <button type="button" data-theme-preset="amoled">🖤 AMOLED</button>
+          </div>
+          <div class="theme-prompt-row"><button id="generateThemeImage" class="primary" type="button">✨ AI से Background बनाएं</button></div>
+          <div class="theme-upload-row"><label for="themeImage">या अपना background image लगाएं</label><input id="themeImage" type="file" accept="image/png,image/jpeg,image/webp"></div>
+          <div class="theme-studio-note" id="themeStatus" role="status">Theme चुनें, अपना background लगाएं या AI से नया background बनवाएं।</div>
+          <button id="resetTheme" class="text-button" type="button">Default theme वापस करें</button>
+        </div>
+      </details>
+
+      <section class="phone-control" id="phoneControl" aria-label="Phone controls">
+        <div class="phone-control-head">
+          <div><strong>📱 UJ AI Phone Control</strong><small>फोन के supported apps और settings खोलें</small></div>
+          <span class="phone-badge">BETA</span>
+        </div>
+        <div class="phone-action-grid">
+          <button type="button" id="setDefaultAssistant">🤖 UJ को Default Assistant बनाएं</button>
+          <button type="button" data-phone-action="youtube">▶ YouTube</button>
+          <button type="button" data-phone-action="whatsapp">WhatsApp</button>
+          <button type="button" data-phone-action="camera">📷 Camera</button>
+          <button type="button" data-phone-action="chrome">🌐 Chrome</button>
+          <button type="button" data-phone-action="settings">⚙ Settings</button>
+          <button type="button" data-phone-action="wifi">Wi‑Fi settings</button>
+          <button type="button" data-phone-action="bluetooth">Bluetooth</button>
+          <button type="button" data-phone-action="dialer">📞 Dialer</button>
+          <button type="button" data-phone-action="messages">💬 Messages</button>
+          <button type="button" data-phone-action="sms">✉️ SMS composer</button>
+          <button type="button" data-phone-action="contacts">👥 Contacts</button>
+          <button type="button" data-phone-action="maps">📍 Maps</button>
+          <button type="button" data-phone-action="clock">⏰ Clock</button>
+          <button type="button" data-phone-action="alarm">🔔 Set alarm</button>
+          <button type="button" data-phone-action="calendar">📅 Calendar</button>
+          <button type="button" data-phone-action="email">📧 Email</button>
+        </div>
+        <p class="phone-control-note" id="nativeAssistantStatus">Android पर Default Assistant चुनने के लिए ऊपर का बटन दबाएं।</p>
+        <p class="phone-control-note">Voice command: “UJ AI, YouTube kholo”, “Maps kholo” या “alarm set karo”. कॉल/SMS भेजने, alarm और calendar details की पुष्टि फोन पर करें।</p>
+      </section>
+
+      <main id="chatMessages" class="messages" aria-live="polite">
+        <section id="welcome" class="welcome-panel">
+          <div class="welcome-orb">UJ</div>
+          <p class="eyebrow">NAMASTE</p>
+          <h1>आज क्या सीखें या बनाएं?</h1>
+          <p class="muted">Hindi या Hinglish में पूछें। आपकी chat history account के साथ sync होती है।</p>
+          <div class="suggestion-grid">
+            <button class="suggestion" data-prompt="Mujhe aaj ke din ka simple plan banane mein help karo.">आज का plan बनाओ</button>
+            <button class="suggestion" data-prompt="Nursing study ke liye vital signs ko simple Hindi mein samjhao.">Nursing topic समझाओ</button>
+            <button class="suggestion" data-prompt="Mujhe JavaScript ka ek beginner-friendly example samjhao.">Coding शुरू करें</button>
+            <button class="suggestion" data-prompt="Cybersecurity ke basic defensive principles Hindi mein samjhao.">Cybersecurity सीखें</button>
+          </div>
+        </section>
+      </main>
+
+      <footer class="composer-wrap">
+        <div id="composerStatus" class="composer-status" role="status" aria-live="polite"></div>
+        <form id="composer" class="composer">
+          <button class="icon-button attach-button" id="attachButton" type="button" aria-label="Attach text file" title="Safe text/log/code file analysis">📎</button>
+          <input id="fileInput" type="file" accept=".txt,.log,.csv,.json,.html,.css,.js,.py,.md,.xml,.yaml,.yml,.conf,.ini,text/plain,application/json" hidden>
+          <button class="icon-button mic-button" id="micButton" type="button" aria-label="Voice input" title="Voice input">🎙</button>
+          <textarea id="messageInput" rows="1" maxlength="20000" placeholder="UJ AI से कुछ भी पूछें…" aria-label="Message"></textarea>
+          <button class="send-button" id="sendButton" type="submit" aria-label="Send message">➤</button>
+        </form>
+        <div class="composer-tools">
+          <div class="voice-controls"><button id="ujVoicePreview" class="text-button" type="button">🎙 UJ की आवाज़ सुनें</button><button id="voiceToggle" class="text-button" type="button" aria-pressed="true">🔊 जवाब बोलें: On</button><button id="voiceConversation" class="text-button" type="button" aria-pressed="false">🎧 बातचीत मोड: Off</button><button id="wakeButton" class="text-button" type="button" aria-pressed="false">🎙 UJ Wake</button><button id="stopSpeaking" class="text-button" type="button">⏹ रोकें</button></div>
+          <span>UJ Wake के लिए ऐप खुला, स्क्रीन चालू, microphone permission और HTTPS जरूरी है।</span>
+        </div>
+      </footer>
+    </section>
+  </div>
+  <div id="devWorkspaceModal" class="dev-modal" hidden role="dialog" aria-modal="true" aria-labelledby="devWorkspaceTitle">
+    <section class="dev-card">
+      <header class="dev-head"><div><strong id="devWorkspaceTitle">💻 UJ Developer Workspace</strong><small>Cloud-saved projects · account-private</small></div><button id="closeDevWorkspace" class="icon-button" type="button" aria-label="Close">×</button></header>
+      <div class="dev-toolbar"><button id="createProject" class="primary" type="button">＋ New Project</button><span id="devWorkspaceStatus" role="status">Projects account ke saath save hote hain.</span></div>
+      <div class="dev-layout"><nav id="projectList" class="project-list" aria-label="Projects"></nav><section class="dev-editor"><div class="dev-filebar"><input id="devFilePath" maxlength="180" value="README.md" aria-label="File path"><button id="loadProjectFiles" class="secondary" type="button">Refresh</button></div><textarea id="devCodeEditor" spellcheck="false" placeholder="Project file ka code yahan likho…" aria-label="Code editor"></textarea><div class="dev-actions"><button id="saveProjectFile" class="primary" type="button">Save File</button><button id="newProjectFile" class="secondary" type="button">New File</button></div></section></div>
+      <p class="dev-note">Files private account storage mein save hoti hain. Code yahan execute nahi hota. Per-file limit 48 KB; per-project limit 1 MB. GitHub sync abhi connect nahi hai.</p>
+    </section>
+  </div>
+  <div id="sidebarScrim" class="sidebar-scrim" hidden></div>
+  <script src="/app.js" defer></script>
+</body>
+</html>

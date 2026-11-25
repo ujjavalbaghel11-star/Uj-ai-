@@ -1,7 +1,7 @@
 # UJ AI Cross-Platform — Development Status
 
-Project version: 3.2.18
-Updated: 2026-11-19
+Project version: 3.2.12
+Updated: 2026-11-18
 
 ## v3.2.12 — Original chat background patch
 - Added the exact original `public/images/uj-background.png` asset from the saved background patch; image bytes were copied unchanged.
@@ -206,12 +206,3 @@ Current project package version: 3.2.7.
 - Updated package, health endpoint, Android version metadata, and PWA cache to 3.2.17.
 - Automated tests cover project creation, file persistence, path traversal rejection, listing and deletion.
 - GitHub OAuth/repository sync is not connected yet; it requires a GitHub authorization flow and registered OAuth app configuration. APK is not built because Android SDK/Gradle tooling is not installed in this environment. For actual cloud durability, deploy the server with a persistent database volume.
-
-
-## v3.2.18 — GitHub OAuth + Repository Sync (2026-11-19)
-- Added GitHub OAuth connect/callback/disconnect routes with expiring one-time state, account binding, rate limiting, and AES-256-GCM encrypted token storage.
-- Added account-scoped public repository listing and project Push/Pull. Push creates Git blobs/tree/commit and advances a branch; Pull imports bounded UTF-8 text files and merges by path without deleting local-only files.
-- Added Developer Workspace controls for connect, repository selection, refresh, push, pull and disconnect.
-- Current scope is `public_repo read:user`; private repositories are intentionally not requested. GitHub OAuth App credentials and a stable encryption key are required in hosting secrets.
-- Added Hindi OAuth setup and Render deployment guides; Render blueprint includes a persistent disk and health check.
-- Local checks and tests are run for this version. GitHub OAuth live consent, external repository push/pull, live deployment, and APK build are not completed because they require user-owned OAuth secrets, hosting account approval, and a GitHub Actions run.

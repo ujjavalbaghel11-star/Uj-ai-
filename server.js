@@ -134,13 +134,6 @@ db.exec(`
     content TEXT NOT NULL, updated_at TEXT NOT NULL, UNIQUE(project_id, path)
   );
   CREATE INDEX IF NOT EXISTS project_files_project_idx ON project_files(project_id, path);
-  CREATE TABLE IF NOT EXISTS github_connections (
-    user_id TEXT PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE,
-    github_login TEXT NOT NULL, encrypted_token TEXT NOT NULL, connected_at TEXT NOT NULL
-  );
-  CREATE TABLE IF NOT EXISTS github_oauth_states (
-    state_hash TEXT PRIMARY KEY, user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE, expires_at TEXT NOT NULL
-  );
 `);
 
 let webauthn = null;
@@ -306,63 +299,6 @@ function credentialIdString(value) {
   return Buffer.from(value).toString('base64url');
 }
 
-function githubEncryptionKey() {
-  const raw = String(process.env.UJ_TOKEN_ENCRYPTION_KEY || '').trim();
-  if (/^[a-f0-9]{64}$/i.test(raw)) return Buffer.from(raw, 'hex');
-  const decoded = Buffer.from(raw, 'base64');
-  return decoded.length === 32 ? decoded : null;
-}
-function encryptGithubToken(token) {
-  const key = githubEncryptionKey();
-  if (!key) throw new Error('UJ_TOKEN_ENCRYPTION_KEY must be a 32-byte base64 or 64-character hex key.');
-  const iv = crypto.randomBytes(12);
-  const cipher = crypto.createCipheriv('aes-256-gcm', key, iv);
-  const ciphertext = Buffer.concat([cipher.update(token, 'utf8'), cipher.final()]);
-  return [iv.toString('base64url'), cipher.getAuthTag().toString('base64url'), ciphertext.toString('base64url')].join('.');
-}
-function decryptGithubToken(value) {
-  const key = githubEncryptionKey();
-  if (!key) throw new Error('GitHub token encryption is not configured.');
-  const [iv, tag, ciphertext] = String(value).split('.');
-  const decipher = crypto.createDecipheriv('aes-256-gcm', key, Buffer.from(iv, 'base64url'));
-  decipher.setAuthTag(Buffer.from(tag, 'base64url'));
-  return Buffer.concat([decipher.update(Buffer.from(ciphertext, 'base64url')), decipher.final()]).toString('utf8');
-}
-function githubConfig(req) {
-  const callbackUrl = process.env.GITHUB_CALLBACK_URL || `${expectedOrigin(req)}/api/github/callback`;
-  return { clientId: process.env.GITHUB_CLIENT_ID || '', clientSecret: process.env.GITHUB_CLIENT_SECRET || '', callbackUrl, ready: Boolean(process.env.GITHUB_CLIENT_ID && process.env.GITHUB_CLIENT_SECRET && githubEncryptionKey()) };
-}
-async function githubRequest(token, endpoint, options = {}) {
-  const response = await fetch(`https://api.github.com${endpoint}`, {
-    method: options.method || 'GET',
-    headers: {
-      Accept: 'application/vnd.github+json', Authorization: `Bearer ${token}`,
-      'X-GitHub-Api-Version': '2022-11-28', 'User-Agent': 'UJ-AI-Developer-Workspace',
-      ...(options.body ? { 'Content-Type': 'application/json' } : {})
-    },
-    body: options.body ? JSON.stringify(options.body) : undefined,
-    signal: AbortSignal.timeout(25_000)
-  });
-  const data = await response.json().catch(() => ({}));
-  if (!response.ok) {
-    const error = new Error(response.status === 401 ? 'GitHub connection expired. Reconnect GitHub.' : response.status === 403 ? 'GitHub permission or API rate limit blocked this action.' : response.status === 404 ? 'GitHub repository or branch nahi mila.' : 'GitHub request failed.');
-    error.status = response.status; throw error;
-  }
-  return data;
-}
-function getGithubToken(userId) {
-  const row = db.prepare('SELECT encrypted_token,github_login FROM github_connections WHERE user_id=?').get(userId);
-  if (!row) return null;
-  return { token: decryptGithubToken(row.encrypted_token), login: row.github_login };
-}
-function validGithubRepoName(value) {
-  return /^[A-Za-z0-9_.-]{1,100}\/[A-Za-z0-9_.-]{1,100}$/.test(String(value || ''));
-}
-function sensitiveProjectPath(filePath) {
-  const base = String(filePath || '').split('/').pop().toLowerCase();
-  return (base === '.env' || (base.startsWith('.env.') && base !== '.env.example') || base === 'credentials.json' || base === 'secrets.json' || base === 'id_rsa' || /\.(pem|key|p12|pfx)$/.test(base));
-}
-
 async function askGemini(message, history, mode) {
   const model = process.env.GEMINI_MODEL || 'gemini-2.5-flash';
   const contents = [...history, { role: 'user', content: message }].map(item => ({
@@ -439,33 +375,8 @@ async function handle(req, res) {
     if (req.method !== 'GET' && !originAllowed(req)) { json(res, 403, { error: 'Cross-site request blocked.' }); return; }
     if (pathname === '/api/health' && req.method === 'GET') {
       const aiReady = Boolean(process.env.GEMINI_API_KEY || process.env.OPENAI_API_KEY || (process.env.META_API_KEY && process.env.META_BASE_URL && process.env.META_MODEL));
-      json(res, 200, { ok: true, app: 'UJ AI', version: '3.2.19', githubOAuthReady: Boolean(process.env.GITHUB_CLIENT_ID && process.env.GITHUB_CLIENT_SECRET && githubEncryptionKey()), aiReady, imageGenerationReady: Boolean(process.env.OPENAI_API_KEY), voiceTtsReady: Boolean(process.env.HEYGEN_API_KEY && process.env.HEYGEN_VOICE_ID), passkeysAvailable: Boolean(webauthn) });
+      json(res, 200, { ok: true, app: 'UJ AI', version: '3.2.17', aiReady, imageGenerationReady: Boolean(process.env.OPENAI_API_KEY), voiceTtsReady: Boolean(process.env.HEYGEN_API_KEY && process.env.HEYGEN_VOICE_ID), passkeysAvailable: Boolean(webauthn) });
       return;
-    }
-    if (pathname === '/api/github/callback' && req.method === 'GET') {
-      const session = getSession(req);
-      const state = String(url.searchParams.get('state') || '');
-      const code = String(url.searchParams.get('code') || '');
-      const stateRow = state ? db.prepare('SELECT user_id,expires_at FROM github_oauth_states WHERE state_hash=?').get(sha256(state)) : null;
-      if (!session || !stateRow || stateRow.user_id !== session.userId || Date.parse(stateRow.expires_at) < Date.now() || !code) {
-        if (state) db.prepare('DELETE FROM github_oauth_states WHERE state_hash=?').run(sha256(state));
-        res.writeHead(302, { Location: '/?github=failed', 'Cache-Control': 'no-store' }); res.end(); return;
-      }
-      db.prepare('DELETE FROM github_oauth_states WHERE state_hash=?').run(sha256(state));
-      const config = githubConfig(req);
-      if (!config.ready) { res.writeHead(302, { Location: '/?github=setup-required', 'Cache-Control': 'no-store' }); res.end(); return; }
-      const exchange = await fetch('https://github.com/login/oauth/access_token', {
-        method: 'POST', headers: { Accept: 'application/json', 'Content-Type': 'application/json' },
-        body: JSON.stringify({ client_id: config.clientId, client_secret: config.clientSecret, code, redirect_uri: config.callbackUrl }),
-        signal: AbortSignal.timeout(20_000)
-      });
-      const tokenData = await exchange.json().catch(() => ({}));
-      if (!exchange.ok || !tokenData.access_token) { res.writeHead(302, { Location: '/?github=failed', 'Cache-Control': 'no-store' }); res.end(); return; }
-      const profile = await githubRequest(tokenData.access_token, '/user');
-      db.prepare(`INSERT INTO github_connections(user_id,github_login,encrypted_token,connected_at) VALUES(?,?,?,?)
-        ON CONFLICT(user_id) DO UPDATE SET github_login=excluded.github_login,encrypted_token=excluded.encrypted_token,connected_at=excluded.connected_at`)
-        .run(session.userId, String(profile.login || '').slice(0, 100), encryptGithubToken(tokenData.access_token), nowIso());
-      res.writeHead(302, { Location: '/?github=connected', 'Cache-Control': 'no-store' }); res.end(); return;
     }
     if (pathname === '/api/theme/generate-image' && req.method === 'POST') {
       const session = getSession(req);
@@ -710,116 +621,6 @@ async function handle(req, res) {
       db.prepare('DELETE FROM chats WHERE id=? AND user_id=?').run(deleteChatMatch[1], session.userId);
       json(res, 200, { ok: true });
       return;
-    }
-    if (pathname === '/api/github/status' && req.method === 'GET') {
-      if (!authRequired(res, session)) return;
-      const config = githubConfig(req);
-      const connection = db.prepare('SELECT github_login,connected_at FROM github_connections WHERE user_id=?').get(session.userId);
-      json(res, 200, { configured: config.ready, connected: Boolean(connection), login: connection?.github_login || null, connectedAt: connection?.connected_at || null, scope: 'public_repo read:user' }); return;
-    }
-    if (pathname === '/api/github/connect' && req.method === 'POST') {
-      if (!authRequired(res, session) || !csrfRequired(req, res, session)) return;
-      if (!rateRequired(`github-connect:${session.userId}`, 5, 10 * 60_000, res)) return;
-      const config = githubConfig(req);
-      if (!config.ready) { json(res, 503, { error: 'GitHub OAuth setup pending: GITHUB_CLIENT_ID, GITHUB_CLIENT_SECRET aur UJ_TOKEN_ENCRYPTION_KEY hosting par set karne honge.' }); return; }
-      const state = randomToken(32);
-      db.prepare('DELETE FROM github_oauth_states WHERE expires_at < ?').run(nowIso());
-      db.prepare('INSERT INTO github_oauth_states(state_hash,user_id,expires_at) VALUES(?,?,?)').run(sha256(state), session.userId, new Date(Date.now() + 10 * 60_000).toISOString());
-      const authorize = new URL('https://github.com/login/oauth/authorize');
-      authorize.searchParams.set('client_id', config.clientId); authorize.searchParams.set('redirect_uri', config.callbackUrl);
-      authorize.searchParams.set('scope', 'public_repo read:user'); authorize.searchParams.set('state', state);
-      json(res, 200, { authorizeUrl: authorize.toString() }); return;
-    }
-    if (pathname === '/api/github/disconnect' && req.method === 'POST') {
-      if (!authRequired(res, session) || !csrfRequired(req, res, session)) return;
-      db.prepare('DELETE FROM github_connections WHERE user_id=?').run(session.userId);
-      json(res, 200, { ok: true }); return;
-    }
-    if (pathname === '/api/github/repos' && req.method === 'GET') {
-      if (!authRequired(res, session)) return;
-      const connection = getGithubToken(session.userId);
-      if (!connection) { json(res, 409, { error: 'Pehle GitHub connect karein.' }); return; }
-      const repos = await githubRequest(connection.token, '/user/repos?visibility=public&affiliation=owner%2Ccollaborator&sort=updated&per_page=100');
-      json(res, 200, { repos: repos.map(repo => ({ full_name: repo.full_name, default_branch: repo.default_branch, private: repo.private, can_push: Boolean(repo.permissions?.push), html_url: repo.html_url })).filter(repo => !repo.private) }); return;
-    }
-    if (pathname === '/api/github/push' && req.method === 'POST') {
-      if (!authRequired(res, session) || !csrfRequired(req, res, session)) return;
-      if (!rateRequired(`github-push:${session.userId}`, 5, 60_000, res)) return;
-      const connection = getGithubToken(session.userId);
-      if (!connection) { json(res, 409, { error: 'Pehle GitHub connect karein.' }); return; }
-      const body = await readJson(req); const projectId = String(body.projectId || ''); const repoName = String(body.repo || ''); const branch = String(body.branch || 'main');
-      if (!/^[0-9a-f-]{36}$/i.test(projectId) || !validGithubRepoName(repoName) || !/^[A-Za-z0-9._/-]{1,100}$/.test(branch) || branch.includes('..')) { json(res, 400, { error: 'Project, repository ya branch invalid hai.' }); return; }
-      const project = db.prepare('SELECT id,name FROM projects WHERE id=? AND user_id=?').get(projectId, session.userId);
-      if (!project) { json(res, 404, { error: 'Project nahi mila.' }); return; }
-      const files = db.prepare('SELECT path,content FROM project_files WHERE project_id=? AND user_id=? ORDER BY path LIMIT 200').all(projectId, session.userId);
-      if (files.some(file => sensitiveProjectPath(file.path))) { json(res, 400, { error: 'Project mein secret/config file hai (.env, keys, credentials). Use karne se pehle use hatao ya rename karo; secrets public GitHub par push nahi honge.' }); return; }
-      if (!files.length) { json(res, 400, { error: 'Project mein push karne ke liye files nahi hain.' }); return; }
-      const repo = await githubRequest(connection.token, `/repos/${repoName}`);
-      if (repo.private || !repo.permissions?.push) { json(res, 403, { error: 'Sirf public repositories aur write permission wale repos supported hain.' }); return; }
-      let baseSha = null; let baseTree = null;
-      try {
-        const ref = await githubRequest(connection.token, `/repos/${repoName}/git/ref/heads/${encodeURIComponent(branch)}`); baseSha = ref.object.sha;
-      } catch (error) {
-        if (error.status !== 404) throw error;
-        if (branch !== repo.default_branch) {
-          try { const defaultRef = await githubRequest(connection.token, `/repos/${repoName}/git/ref/heads/${encodeURIComponent(repo.default_branch)}`); baseSha = defaultRef.object.sha; }
-          catch (defaultError) { if (defaultError.status !== 404) throw defaultError; }
-        }
-      }
-      if (baseSha) { const baseCommit = await githubRequest(connection.token, `/repos/${repoName}/git/commits/${baseSha}`); baseTree = baseCommit.tree.sha; }
-      const tree = [];
-      for (const file of files) {
-        const blob = await githubRequest(connection.token, `/repos/${repoName}/git/blobs`, { method: 'POST', body: { content: Buffer.from(file.content, 'utf8').toString('base64'), encoding: 'base64' } });
-        tree.push({ path: file.path, mode: '100644', type: 'blob', sha: blob.sha });
-      }
-      const treeBody = baseTree ? { base_tree: baseTree, tree } : { tree };
-      const treeResult = await githubRequest(connection.token, `/repos/${repoName}/git/trees`, { method: 'POST', body: treeBody });
-      const commitResult = await githubRequest(connection.token, `/repos/${repoName}/git/commits`, { method: 'POST', body: { message: `UJ AI sync: ${project.name}`, tree: treeResult.sha, parents: baseSha ? [baseSha] : [] } });
-      if (baseSha && branch === repo.default_branch) {
-        await githubRequest(connection.token, `/repos/${repoName}/git/refs/heads/${encodeURIComponent(branch)}`, { method: 'PATCH', body: { sha: commitResult.sha, force: false } });
-      } else {
-        try { await githubRequest(connection.token, `/repos/${repoName}/git/refs/heads/${encodeURIComponent(branch)}`, { method: 'PATCH', body: { sha: commitResult.sha, force: false } }); }
-        catch (error) { if (error.status !== 404) throw error; await githubRequest(connection.token, `/repos/${repoName}/git/refs`, { method: 'POST', body: { ref: `refs/heads/${branch}`, sha: commitResult.sha } }); }
-      }
-      json(res, 200, { ok: true, repo: repoName, branch, files: files.length, commit: commitResult.sha, url: `https://github.com/${repoName}/commit/${commitResult.sha}` }); return;
-    }
-    if (pathname === '/api/github/pull' && req.method === 'POST') {
-      if (!authRequired(res, session) || !csrfRequired(req, res, session)) return;
-      if (!rateRequired(`github-pull:${session.userId}`, 5, 60_000, res)) return;
-      const connection = getGithubToken(session.userId);
-      if (!connection) { json(res, 409, { error: 'Pehle GitHub connect karein.' }); return; }
-      const body = await readJson(req); const projectId = String(body.projectId || ''); const repoName = String(body.repo || ''); const branch = String(body.branch || 'main');
-      if (!/^[0-9a-f-]{36}$/i.test(projectId) || !validGithubRepoName(repoName) || !/^[A-Za-z0-9._/-]{1,100}$/.test(branch) || branch.includes('..')) { json(res, 400, { error: 'Project, repository ya branch invalid hai.' }); return; }
-      const project = db.prepare('SELECT id FROM projects WHERE id=? AND user_id=?').get(projectId, session.userId);
-      if (!project) { json(res, 404, { error: 'Project nahi mila.' }); return; }
-      const repo = await githubRequest(connection.token, `/repos/${repoName}`);
-      if (repo.private) { json(res, 403, { error: 'Private repositories is integration mein supported nahi hain.' }); return; }
-      const ref = await githubRequest(connection.token, `/repos/${repoName}/git/ref/heads/${encodeURIComponent(branch)}`);
-      const commit = await githubRequest(connection.token, `/repos/${repoName}/git/commits/${ref.object.sha}`);
-      const tree = await githubRequest(connection.token, `/repos/${repoName}/git/trees/${commit.tree.sha}?recursive=1`);
-      if (tree.truncated) { json(res, 413, { error: 'Repository tree bahut bada hai; smaller repo/branch use karein.' }); return; }
-      const blobs = tree.tree.filter(item => item.type === 'blob' && item.size <= 48_000).slice(0, 200);
-      const imported = []; let total = 0;
-      for (const item of blobs) {
-        const filePath = String(item.path || '').replace(/\\/g, '/');
-        if (!filePath || filePath.length > 180 || filePath.startsWith('/') || filePath.split('/').some(part => !part || part === '.' || part === '..') || /[\u0000-\u001f]/.test(filePath) || sensitiveProjectPath(filePath)) continue;
-        const blob = await githubRequest(connection.token, `/repos/${repoName}/git/blobs/${item.sha}`);
-        if (blob.encoding !== 'base64') continue;
-        const bytes = Buffer.from(String(blob.content || '').replace(/\s/g, ''), 'base64');
-        if (bytes.includes(0) || bytes.length > 48_000) continue;
-        const content = bytes.toString('utf8');
-        if (!Buffer.from(content, 'utf8').equals(bytes)) continue;
-        total += content.length; if (total > 1_000_000) { json(res, 413, { error: 'Imported text files 1 MB project limit se zyada hain.' }); return; }
-        imported.push({ path: filePath, content }); if (imported.length >= 200) break;
-      }
-      if (!imported.length) { json(res, 400, { error: 'Repository mein import karne layak text files nahi mili.' }); return; }
-      const upsert = db.prepare(`INSERT INTO project_files(id,project_id,user_id,path,content,updated_at) VALUES(?,?,?,?,?,?) ON CONFLICT(project_id,path) DO UPDATE SET content=excluded.content,updated_at=excluded.updated_at`);
-      const transaction = db.transaction(() => {
-        for (const file of imported) upsert.run(crypto.randomUUID(), projectId, session.userId, file.path, file.content, nowIso());
-        db.prepare('UPDATE projects SET updated_at=? WHERE id=? AND user_id=?').run(nowIso(), projectId, session.userId);
-      });
-      transaction();
-      json(res, 200, { ok: true, repo: repoName, branch, files: imported.length, note: 'GitHub files merged; local-only files were kept.' }); return;
     }
     if (pathname === '/api/projects' && req.method === 'GET') {
       if (!authRequired(res, session)) return;

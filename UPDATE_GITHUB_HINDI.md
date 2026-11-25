@@ -1,21 +1,13 @@
-# UJ AI v3.2.19 — GitHub par update karke APK banayein
+UJ AI v3.2.12 ko apne existing GitHub repository me update karne ke liye:
 
-## ZIP upload karne ka sahi tareeka
+1. ZIP ko extract karein.
+2. Extract hui folder ke ANDAR ki sabhi files/folders (hidden .github folder samet) ko apne repository ke root me upload karein.
+3. GitHub par existing files replace/overwrite karein. Naye folders/files bhi upload hon.
+4. Commit changes karein.
+5. GitHub repository me Actions tab kholein.
+6. "Build UJ AI Android APK" workflow select karke Run workflow dabayein.
+7. Build successful hone par run ke Artifacts section se "UJ-AI-debug-APK" download karein.
 
-1. Is ZIP ko phone me extract karein.
-2. Extracted project ke andar ki sabhi files aur folders select karein. `.github` hidden folder bhi zaroor include karein.
-3. GitHub par apna `Uj-ai-` repository kholein aur `main` branch select karein.
-4. `Add file` → `Upload files` par tap karein.
-5. Extracted project ki files/folders upload karein. ZIP file ko ZIP ke roop me upload na karein.
-6. Upload page ke neeche commit message likhein: `Update UJ AI to v3.2.19 and build Android APK`.
-7. `Commit changes` dabayein.
-8. Repository ke `Actions` tab me `Build UJ AI Android APK` workflow kholein. Push se workflow automatic shuru ho sakta hai; nahi hua to `Run workflow` dabayein.
-9. Build successful hone par run kholein → `Artifacts` → `UJ-AI-debug-APK` download karein.
-10. Artifact ZIP extract karke `app-debug.apk` install karein.
+Note: ZIP file ko repository me sirf ek ZIP ke roop me upload karne se workflow run nahi hoga. ZIP extract karke uske andar ka project root repository me update karna zaroori hai.
 
-## Dhyan dein
-
-- GitHub repository me project ki files root par honi chahiye, yani `package.json`, `server.js`, `android/`, `public/` aur `.github/` seedhe repository root me dikhne chahiye.
-- Is source package me pehle se APK nahi hai. APK GitHub Actions build ke baad banta hai.
-- Workflow dependencies ke liye `npm install` chalata hai; package-lock file is package me nahi hai.
-- AI provider/API keys ko source code ya GitHub commit me na daalein. Unhe hosting service ke environment secrets me rakhein.
+Is package me source code aur APK build workflow hai; pehle se bana hua APK nahi hai. APK tabhi milega jab GitHub Actions build successful ho.

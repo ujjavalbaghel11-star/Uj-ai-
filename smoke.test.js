@@ -70,7 +70,6 @@ async function request(route, options = {}) {
   assert.equal(health.data.ok, true);
   assert.equal(health.data.aiReady, false);
   assert.equal(health.data.imageGenerationReady, false);
-  assert.equal(health.data.githubOAuthReady, false);
   assert.equal(Object.hasOwn(health.data, 'providers'), false, 'provider identities should not be exposed');
 
   const shell = await fetch(`${baseUrl}/`);
@@ -84,9 +83,6 @@ async function request(route, options = {}) {
   assert.match(shellHtml, /id="wakeButton"/);
   assert.match(shellHtml, /id="openDevWorkspace"/);
   assert.match(shellHtml, /id="devWorkspaceModal"/);
-  assert.match(shellHtml, /id="githubConnect"/);
-  assert.match(shellHtml, /id="githubPush"/);
-  assert.match(shellHtml, /id="githubPull"/);
   assert.match(shellHtml, /id="generateThemeImage"/);
   assert.match(shellHtml, /data-phone-action="youtube"/);
   const clientJs = await fetch(`${baseUrl}/app.js`);
@@ -96,8 +92,6 @@ async function request(route, options = {}) {
   assert.match(clientSource, /UJ Wake/);
   assert.match(clientSource, /android\.settings\.WIFI_SETTINGS/);
   assert.match(clientSource, /android\.media\.action\.IMAGE_CAPTURE/);
-  assert.match(clientSource, /async function githubSync/);
-  assert.match(clientSource, /githubSync\('pull'\)/);
   const manifest = await fetch(`${baseUrl}/manifest.webmanifest`);
   assert.equal(manifest.status, 200);
   assert.match(await manifest.text(), /"display": "standalone"/);
@@ -169,23 +163,6 @@ async function request(route, options = {}) {
   assert.equal(login.response.status, 200);
   const syncedChats = await request('/api/chats');
   assert.equal(syncedChats.response.status, 200);
-  const githubStatus = await request('/api/github/status');
-  assert.equal(githubStatus.response.status, 200);
-  assert.equal(githubStatus.data.configured, false);
-  assert.equal(githubStatus.data.connected, false);
-  assert.equal(Object.hasOwn(githubStatus.data, 'token'), false);
-  const githubConnectMissingConfig = await request('/api/github/connect', { method: 'POST', body: {} });
-  assert.equal(githubConnectMissingConfig.response.status, 503);
-  assert.match(githubConnectMissingConfig.data.error, /GITHUB_CLIENT_ID/);
-  const projectForGitHub = await request('/api/projects', { method: 'POST', body: { name: 'Secret Guard Test' } });
-  const secretProjectId = projectForGitHub.data.project.id;
-  await request(`/api/projects/${secretProjectId}/files`, { method: 'PUT', body: { path: '.env', content: 'API_KEY=not-real' } });
-  const blockedSecretPush = await request('/api/github/push', { method: 'POST', body: { projectId: secretProjectId, repo: 'someone/example', branch: 'main' } });
-  assert.equal(blockedSecretPush.response.status, 409, 'push requires a connected GitHub account before any remote operation');
-  await request(`/api/projects/${secretProjectId}`, { method: 'DELETE', body: {} });
-  const githubReposNotConnected = await request('/api/github/repos');
-  assert.equal(githubReposNotConnected.response.status, 409);
-
   const projectCreate = await request('/api/projects', { method: 'POST', body: { name: 'UJ Demo', description: 'Cloud workspace test' } });
   assert.equal(projectCreate.response.status, 201);
   const projectId = projectCreate.data.project.id;
