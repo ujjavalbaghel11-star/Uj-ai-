@@ -1,0 +1,31 @@
+UJ AI v3.2.24 PATCH VERIFICATION
+Base inspected: ujjavalbaghel11-star/Uj-ai- main @ 097a40128f1c9c5d47c17a01d9dcee6f57395af9
+Date: 2026-11-27
+
+Verified from GitHub:
+- Current main commit is 097a40128f1c9c5d47c17a01d9dcee6f57395af9.
+- Android Actions run #29 (45556140683) completed successfully.
+- All 11 job steps, including npm ci, project checks, Capacitor sync, Gradle assembleDebug and artifact upload, succeeded.
+- Existing artifact: uj-ai-debug-apk, 5,887,267 bytes; this is the previous main-branch build, not a new build from this patch.
+- package.json version is 3.2.17 and package-lock root version is 3.2.19; despite that metadata mismatch, the verified run #29 npm ci succeeded. This patch synchronizes metadata; it does not claim that the mismatch caused prior failures.
+- The current AndroidManifest has whitespace before the <manifest> root and no XML declaration; that whitespace is valid XML. The previously reported XML-declaration explanation was not supported by the current file.
+
+Local patch-harness checks (Node v22.16.0):
+- Patch apply script syntax: PASS.
+- Patch applied to a synthetic fixture using exact current-main anchors: PASS.
+- Patch script second application (idempotence): PASS.
+- npm run check in fixture: PASS.
+- tests/native-api.test.js in fixture: 6/6 PASS.
+- YAML parse for updated Android workflow and render.yaml: PASS.
+- JSON parse for package.json, package-lock.json and capacitor.config.json: PASS.
+- configure-native-api script tests missing URL, rejects HTTP URL, accepts HTTPS origin and emits no secret: PASS (included in the 6 tests).
+
+Not verified in this run:
+- The patch was NOT applied to GitHub. GitHub branch creation and contents write both returned 403 Resource not accessible by integration.
+- The synthetic fixture is not a full checkout of the repository. tests/native-cors.test.js is included but has NOT been run against the actual full server.js.
+- No new APK, iOS build, Render deployment, live AI provider request, HeyGen request or physical-device login/cookie/biometric test was performed.
+
+Required before native APK build:
+- Set GitHub Actions repository variable UJ_API_BASE_URL to the real public HTTPS backend origin.
+- Ensure Render has PUBLIC_ORIGIN and NATIVE_ALLOWED_ORIGINS configured.
+- Apply patch, run npm ci && npm run check && npm test, then let GitHub Actions build the APK.
